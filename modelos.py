@@ -15,6 +15,7 @@ class Bolsita:
 class Contenedor:
     indice: int
     items: list[Item]  # Lista de ítems (con cantidad y beneficio)
+    beneficio: int = 1
 
 
 @dataclass
