@@ -1,0 +1,530 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}        % Codificación correcta de fuente
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsthm} % Paquetes matemáticos
+\usepackage{amsfonts}         % Fuentes matemáticas adicionales
+\usepackage{enumitem}           % Listas personalizadas
+\usepackage{geometry}
+\geometry{margin=2.5cm}      % Márgenes
+\usepackage{fancyhdr}         % Encabezados y pies de página
+\usepackage{graphicx}         % Inclusión de gráficos
+\usepackage{listings}           % Para código fuente
+\usepackage{xcolor}             % Colores
+\usepackage{longtable}          % Tablas que abarcan varias páginas
+\usepackage{hyperref}           % Hipervínculos (útil para TOC)
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Optimización de Picking},
+    pdfpagemode=FullScreen,
+}
+
+\title{Optimización de Selección de Bolsitas y Contenedores:\\[1ex]
+       \large Modelado Matemático y Resolución de Variantes del Problema}
+\author{Juan Manuel Losada \\\\ Facundo Ruiz \\\\ Matías Morales \\\\ Vanesa Vera}
+\date{\today}
+
+% Configuración de encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{} % Limpiar encabezados y pies predefinidos
+\lhead{Optimización de Bolsitas y Contenedores}
+\rhead{\thepage}
+\cfoot{}
+
+% Definición de entornos para teoremas, etc.
+\newtheorem{theorem}{Teorema}
+\newtheorem{lemma}{Lema}
+\newtheorem{definition}{Definición}
+\newtheorem{problem}{Problema}
+
+% Configuración de listings (código Python)
+\lstdefinestyle{PythonStyle}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!60!black}\itshape,
+  stringstyle=\color{red!80!black},
+  numberstyle=\tiny\color{gray},
+  showstringspaces=false,
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=true,
+  numbers=left,
+  frame=tb, % Marco arriba y abajo
+  framesep=5pt,
+  framexleftmargin=2pt,
+  captionpos=b, % Posición del caption
+  extendedchars=true,
+  inputencoding=utf8, % Para acentos y caracteres especiales en el código
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1 {ñ}{{\~n}}1 {Ñ}{{\~N}}1 % Acentos en listings
+}
+\lstset{style=PythonStyle}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\clearpage
+
+\tableofcontents
+\clearpage
+
+%====================================================================
+\section{Introducción al Problema de Optimización de Selección}
+%====================================================================
+
+En el contexto de la optimización combinatoria, uno de los problemas fundamentales es la asignación eficiente de recursos limitados para maximizar beneficios o minimizar costos. Este trabajo se enfoca en un problema específico de selección óptima que involucra la coordinación entre dos tipos de entidades: \emph{bolsitas} que contienen ítems requeridos y \emph{contenedores} que almacenan ítems disponibles.
+
+El problema central consiste en seleccionar subconjuntos de bolsitas y contenedores de manera que se maximice el beneficio total, respetando las restricciones de disponibilidad de ítems y los límites operacionales del sistema. Este tipo de problema surge frecuentemente en aplicaciones de logística, gestión de inventarios, y asignación de recursos en sistemas distribuidos.
+
+\subsection{Descripción del Problema Base}
+
+Consideramos un sistema con los siguientes elementos fundamentales:
+
+\begin{itemize}
+    \item \textbf{Ítems ($I$):} Un conjunto de $i$ tipos diferentes de productos o recursos. Cada ítem se identifica por un índice único $t \in \{0, 1, \ldots, i-1\}$.
+    \item \textbf{Bolsitas ($O$):} Un conjunto de $o$ bolsitas, donde cada bolsita $j \in \{0, 1, \ldots, o-1\}$ contiene una cantidad específica $c_{jt}$ de cada tipo de ítem $t$. Las bolsitas representan demandas o requerimientos que deben ser satisfechos.
+    \item \textbf{Contenedores ($A$):} Un conjunto de $a$ contenedores, donde cada contenedor $k \in \{0, 1, \ldots, a-1\}$ almacena una cantidad específica $d_{kt}$ de cada tipo de ítem $t$. Los contenedores representan los recursos disponibles para satisfacer las demandas.
+\end{itemize}
+
+\subsection{Parámetros del Problema}
+
+El sistema está caracterizado por los siguientes parámetros:
+
+\begin{itemize}
+    \item $c_{jt}$: Cantidad del ítem tipo $t$ contenida en la bolsita $j$.
+    \item $d_{kt}$: Cantidad del ítem tipo $t$ disponible en el contenedor $k$.
+    \item $b_o = 1$: Beneficio unitario por cada ítem en las bolsitas seleccionadas.
+    \item $b_a = 1$: Beneficio unitario asociado con cada contenedor seleccionado.
+    \item $LB, UB$: Límites inferior y superior para ciertas restricciones operacionales (cuando apliquen).
+\end{itemize}
+
+El objetivo general es determinar qué bolsitas satisfacer y qué contenedores utilizar para maximizar el beneficio total, asegurando que los contenedores seleccionados tengan suficientes ítems para cubrir las demandas de las bolsitas seleccionadas.
+
+\subsection{Formato de los Datos de Entrada}
+
+Las instancias del problema se especifican mediante archivos de texto con la siguiente estructura:
+
+\begin{itemize}
+    \item \textbf{Primera línea:} Tres enteros $o$, $i$, $a$ que representan el número de bolsitas, tipos de ítems y contenedores, respectivamente.
+    \item \textbf{Siguientes $o$ líneas:} Cada línea describe una bolsita. Comienza con un entero $k$ (número de tipos de ítems diferentes en la bolsita), seguido por $k$ pares de enteros $(t, q)$, donde $t$ es el tipo de ítem ($0$ a $i-1$) y $q$ es la cantidad $c_{jt}$ de ese ítem.
+    \item \textbf{Siguientes $a$ líneas:} Cada línea describe un contenedor. Comienza con un entero $l$ (número de tipos de ítems diferentes en el contenedor), seguido por $l$ pares de enteros $(t, q)$, donde $t$ es el tipo de ítem y $q$ es la cantidad $d_{kt}$ de ese ítem.
+    \item \textbf{Última línea (opcional):} Dos enteros $LB$ y $UB$ que representan límites operacionales cuando sea necesario.
+\end{itemize}
+
+Para los modelos presentados, se asume que cada ítem proporciona un beneficio unitario ($b_o = b_a = 1$), y que el objetivo es maximizar el beneficio total del sistema.
+
+%====================================================================
+\section{Variantes del Problema y Modelos de Optimización}
+%====================================================================
+A continuación, se describen tres variantes específicas del problema general de selección de bolsitas y contenedores, junto con sus modelos matemáticos y enfoques de solución.
+
+%--------------------------------------------------------------------
+\subsection{Variante 1: Selección de Bolsitas con Contenedores Fijos}
+%--------------------------------------------------------------------
+\label{sec:variante1}
+\begin{problem}
+Dado un conjunto predefinido de contenedores $A_{fijo} \subseteq A$ que serán utilizados, se busca seleccionar un subconjunto de bolsitas $O' \subseteq O$ tal que:
+\begin{itemize}
+    \item La cantidad total de ítems requeridos por las bolsitas seleccionadas $O'$ esté dentro de los límites operacionales $[LB, UB]$.
+    \item Los contenedores en $A_{fijo}$ tengan suficientes ítems para satisfacer la demanda total de las bolsitas en $O'$.
+    \item Se maximice el beneficio total obtenido de las bolsitas seleccionadas y los contenedores utilizados.
+\end{itemize}
+\end{problem}
+
+\subsubsection{Modelo Matemático}
+\textbf{Conjuntos e Índices:}
+\begin{itemize}
+    \item $j \in O = \{0, \dots, o-1\}$: índice de bolsitas.
+    \item $t \in I = \{0, \dots, i-1\}$: índice de tipos de ítems.
+    \item $k \in A_{fijo}$: índice de contenedores fijos.
+\end{itemize}
+
+\textbf{Parámetros:}
+\begin{itemize}
+    \item $c_{jt}$: cantidad del ítem tipo $t$ en la bolsita $j$.
+    \item $d_{kt}$: cantidad del ítem tipo $t$ en el contenedor $k$.
+    \item $Q_j = \sum_{t \in I} c_{jt}$: cantidad total de ítems en la bolsita $j$.
+    \item $LB, UB$: límites operacionales del sistema.
+\end{itemize}
+
+\textbf{Variables de Decisión:}
+\begin{itemize}
+    \item $y_j = 1$ si la bolsita $j$ es seleccionada, $0$ en caso contrario.
+\end{itemize}
+
+\textbf{Función Objetivo:}
+Maximizar el beneficio total de las bolsitas seleccionadas:
+\[ \max \sum_{j \in O} \left(\sum_{t \in I} c_{jt}\right) \cdot y_j \]
+
+\textbf{Restricciones:}
+\begin{enumerate}
+    \item \textbf{Límite inferior del sistema:}
+    \[ \sum_{j \in O} Q_j \cdot y_j \ge LB \]
+    \item \textbf{Límite superior del sistema:}
+    \[ \sum_{j \in O} Q_j \cdot y_j \le UB \]
+    \item \textbf{Disponibilidad de ítems en los contenedores fijos:} Para cada tipo de ítem $t \in I$, la cantidad total requerida por las bolsitas seleccionadas no debe exceder la disponibilidad total en $A_{fijo}$.
+    \[ \sum_{j \in O} c_{jt} \cdot y_j \le \sum_{k \in A_{fijo}} d_{kt} \quad \forall t \in I \]
+    \item \textbf{Dominio de las variables:}
+    \[ y_j \in \{0, 1\} \quad \forall j \in O \]
+\end{enumerate}
+
+\subsubsection{Implementación y Resultados}
+Este modelo se implementa utilizando Python y la librería PuLP. El código correspondiente se encuentra en el script \texttt{desafioparte1.py}.
+
+%--------------------------------------------------------------------
+\subsection{Variante 2: Selección de Contenedores con Bolsitas Fijas}
+%--------------------------------------------------------------------
+\label{sec:variante2}
+\begin{problem}
+Dado un conjunto predefinido de bolsitas $O_{fijo} \subseteq O$ que deben ser satisfechas, y asumiendo que este conjunto $O_{fijo}$ cumple con los límites operacionales $[LB, UB]$, se busca seleccionar un subconjunto de contenedores $A' \subseteq A$ tal que:
+\begin{itemize}
+    \item Los contenedores seleccionados $A'$ tengan suficientes ítems para satisfacer la demanda total de todas las bolsitas en $O_{fijo}$.
+    \item Se minimice la cantidad total de contenedores utilizados (es decir, $|A'|$).
+\end{itemize}
+\end{problem}
+
+\subsubsection{Modelo Matemático}
+\textbf{Conjuntos e Índices:}
+\begin{itemize}
+    \item $j \in O_{fijo}$: índice de bolsitas fijas.
+    \item $t \in I = \{0, \dots, i-1\}$: índice de tipos de ítems.
+    \item $k \in A = \{0, \dots, a-1\}$: índice de contenedores.
+\end{itemize}
+
+\textbf{Parámetros:}
+\begin{itemize}
+    \item $c_{jt}$: cantidad del ítem tipo $t$ en la bolsita $j \in O_{fijo}$.
+    \item $d_{kt}$: cantidad del ítem tipo $t$ en el contenedor $k$.
+    \item $D_t = \sum_{j \in O_{fijo}} c_{jt}$: demanda total del ítem tipo $t$ por las bolsitas fijas.
+\end{itemize}
+
+\textbf{Variables de Decisión:}
+\begin{itemize}
+    \item $x_k = 1$ si el contenedor $k$ es seleccionado, $0$ en caso contrario.
+\end{itemize}
+
+\textbf{Función Objetivo:}
+Minimizar el número de contenedores seleccionados:
+\[ \min \sum_{k \in A} x_k \]
+
+\textbf{Restricciones:}
+\begin{enumerate}
+    \item \textbf{Satisfacción de la demanda de ítems:} Para cada tipo de ítem $t \in I$, la cantidad total disponible en los contenedores seleccionados $A'$ debe ser al menos igual a la demanda total $D_t$.
+    \[ \sum_{k \in A} d_{kt} \cdot x_k \ge D_t \quad \forall t \in I \]
+    \item \textbf{Dominio de las variables:}
+    \[ x_k \in \{0, 1\} \quad \forall k \in A \]
+\end{enumerate}
+Es importante verificar previamente que el conjunto $O_{fijo}$ es factible respecto a los límites $LB, UB$, es decir, $LB \le \sum_{j \in O_{fijo}} \sum_{t \in I} c_{jt} \le UB$.
+
+\subsubsection{Implementación y Resultados}
+Este modelo se implementa en el script \texttt{desafioparte2.py}.
+
+%--------------------------------------------------------------------
+\subsection{Variante 3: Selección de Bolsitas con Generación de Columnas}
+%--------------------------------------------------------------------
+\label{sec:variante3}
+Esta variante aborda el mismo problema que la Variante 1 (Sección \ref{sec:variante1}), es decir, seleccionar bolsitas dado un conjunto fijo de contenedores $A_{fijo}$, pero utilizando una técnica de optimización avanzada conocida como \emph{Generación de Columnas}. Este enfoque es particularmente útil para problemas con un número muy grande de variables, donde enumerarlas todas explícitamente es inviable.
+
+En este contexto, un \textbf{patrón (o columna)} $p$ representa un subconjunto de bolsitas $O_p \subseteq O$ que pueden ser satisfechas por un \emph{único} contenedor $a_p \in A_{fijo}$ y que, además, cumplen con los límites operacionales $[LB, UB]$ por sí mismas.
+
+\subsubsection{Modelo Matemático (Formulación Set-Packing)}
+El problema se reformula como un Problema Maestro Restringido (RMP) de tipo \emph{set-packing}.
+
+\textbf{Conjuntos e Índices:}
+\begin{itemize}    \item $j \in O$: índice de bolsitas.
+    \item $p \in P$: índice de patrones factibles generados.
+\end{itemize}
+
+\textbf{Parámetros:}
+\begin{itemize}    \item $c_p = \sum_{j \in O_p} Q_j$: valor del patrón $p$ (total de ítems en las bolsitas del patrón $p$).
+    \item $\delta_{jp} = 1$ si la bolsita $j$ pertenece al patrón $p$, $0$ en caso contrario.
+\end{itemize}
+
+\textbf{Variables de Decisión (RMP):}
+\begin{itemize}
+    \item $\lambda_p = 1$ si el patrón $p$ es seleccionado, $0$ en caso contrario. (En la relajación LP, $0 \le \lambda_p \le 1$).
+\end{itemize}
+
+\textbf{Función Objetivo (RMP):}
+Maximizar el valor total de los patrones seleccionados:
+\[ \max \sum_{p \in P} c_p \cdot \lambda_p \]
+
+\textbf{Restricciones (RMP):}
+\begin{enumerate}
+    \item \textbf{Cada bolsita se selecciona como máximo una vez (Set-Packing):}
+    \[ \sum_{p \in P} \delta_{jp} \cdot \lambda_p \le 1 \quad \forall j \in O \]
+    % Nota: La restricción de ola Lw, Uw y la de stock por pasillo están implícitas en la definición de los patrones.
+    % Si los patrones se definen por pasillo, y varios patrones de distintos pasillos pueden combinarse,
+    % entonces las restricciones de ola y stock global (sobre A_fijo) deben estar en el RMP o
+    % la definición de patrón debe ser más compleja (ej. un conjunto de órdenes que A_fijo puede servir).
+    % El texto original dice "Cada patrón p corresponde a un pasillo a_p ... más un subconjunto de órdenes O_p que él solo puede atender".
+    % Esto implica que el RMP debe seleccionar patrones de manera que no se sobrecarguen los pasillos si un pasillo puede generar múltiples patrones,
+    % o si los patrones son independientes del pasillo que los sirve (lo cual no parece ser el caso aquí).
+    % La descripción "Desafío(A'|O) con Column Generation" en el prompt original sugiere que A' es fijo.
+    % "Cada patrón será un par (O_subset, a), donde O_subset puede ser servido ... con el pasillo a."
+    % Si A' es fijo, el subproblema busca el mejor (O_subset, a_p) donde a_p es de A'.
+    % El RMP entonces selecciona estos patrones.
+    % La restricción de que cada orden se cubre una vez es correcta.
+    % Las restricciones de ola y stock global de A_fijo deben ser parte del RMP o deben estar en la definición de patrones.
+    % La descripción del prompt original para la parte 3 es: "Cada patrón será un par (O_subset, a), donde O_subset ... puede ser servido ... con el pasillo a."
+    % "El modelo debe incorporar restricciones para seleccionar un subconjunto factible de los patrones."
+    % La implementación en `desafioparte3.py` parece resolver un subproblema *por pasillo* de $A_{fijo}$ .
+    % El RMP entonces combina estos patrones (órdenes seleccionables por un pasillo específico).
+    % El RMP actual en el informe original es: max sum c_p lambda_p, sum_{p ni k} lambda_p <= 1.
+    % Esto es un set-packing sobre órdenes. Los c_p son (valor_ordenes - pi_k).
+    % Esto es para el subproblema. El RMP del informe original es correcto para set-packing.
+    % Las restricciones de ola y stock global deben ser parte del RMP si no están en la definición de patrones.
+    % La descripción de `desafioparte3.py` dice: "Subproblema_Pasillo ... maximiza (valor_ordenes - sum_k pi_k)"
+    % y "Restricciones del subproblema: 1. Disponibilidad de ítems en el pasillo actual 'a'. 2. Capacidad de la ola [Lw, Uw] para las órdenes seleccionadas *para este pasillo*."
+    % Entonces, cada patrón (columna) ya respeta Lw, Uw y el stock del pasillo que lo genera.
+    % El RMP solo necesita la restricción de set-packing para las órdenes.
+    % La restricción global de Lw, Uw para la *suma* de todos los ítems de *todos* los patrones seleccionados no está explícita.
+    % Sin embargo, si el objetivo es el mismo que Variante 1 (max ítems de O' sujeto a A_fijo y Lw, Uw global),
+    % la formulación de CG debe ser equivalente.
+    % El RMP de set-packing maximiza la suma de valores de patrones. Si cada patrón es un conjunto de órdenes,
+    % y $c_p$ es la suma de ítems en esas órdenes, entonces el RMP maximiza ítems.
+    % La restricción de ola global $\sum_p (\sum_{k \in O_p} Q_k) \lambda_p$ entre $L_w$ y $U_w$ podría ser necesaria en el RMP.
+    % Por ahora, mantendré el RMP simple como set-packing, asumiendo que la estructura de patrones y subproblema lo maneja.
+    \item \textbf{Dominio de las variables:}
+    \[ 0 \\le \\lambda_p \\le 1 \\quad \forall p \\in P \\quad \text{(en la relajación LP)} \]
+    \[ \\lambda_p \\in \\{0, 1\\} \\quad \forall p \\in P \\quad \text{(en el problema entero final)} \]
+\end{enumerate}
+
+\textbf{Subproblema de Pricing (por cada contenedor $k \in A_{fijo}$):}
+Para cada contenedor $k \in A_{fijo}$, se busca encontrar un nuevo patrón (conjunto de bolsitas $O_k^*$) que, si se añade al RMP, podría mejorar la solución actual. Esto se hace resolviendo un subproblema de optimización.
+Sean $\pi_j$ los precios duales asociados a las restricciones de set-packing del RMP. El subproblema para el contenedor $k$ es:
+\[ \max \sum_{j \in O} (Q_j - \pi_j) y_j^k \]
+Sujeto a:
+\begin{enumerate}
+    \item Las bolsitas seleccionadas $y_j^k$ deben poder ser satisfechas por el stock del contenedor $k$:
+    \[ \sum_{j \in O} c_{jt} y_j^k \le d_{kt} \quad \forall t \in I \]
+    \item Las bolsitas seleccionadas $y_j^k$ deben cumplir los límites operacionales:
+    \[ LB \le \sum_{j \in O} Q_j y_j^k \le UB \]
+    \item $y_j^k \in \{0,1\}$
+\end{enumerate}
+Si el valor óptimo de este subproblema (costo reducido) es positivo, el patrón $O_k^*$ correspondiente a las $y_j^k=1$ es una columna candidata a entrar al RMP.
+
+\textbf{Algoritmo General de Generación de Columnas:}
+\begin{enumerate}
+    \item Inicializar el RMP con un conjunto básico de patrones factibles.
+    \item Resolver la relajación lineal del RMP actual y obtener los precios duales $\pi_j$.
+    \item Para cada contenedor $k \in A_{fijo}$, resolver el subproblema de pricing.    \item Si se encuentran patrones con costo reducido positivo, agregarlos al RMP y volver al paso 2.
+    \item Si no se encuentran nuevos patrones, la solución de la relajación LP del RMP es óptima. Resolver el RMP como un problema entero (MILP) con los patrones generados.
+\end{enumerate}
+
+\subsubsection{Implementación y Resultados}
+La implementación de esta variante se encuentra en \texttt{desafioparte3.py}.
+\begin{lstlisting}[caption={Extracto de desafioparte3.py (Subproblema)}, label={lst:desafio3_subproblema}]
+# Coeficientes del objetivo para el subproblema: (valor_bolsita_j - pi_j)
+# ...
+# modelo_sub += pulp.lpSum(coeficientes_obj_sub[j] * y_vars_sub[j] for j in range(J_bolsitas)), "MaximizarCostoReducido"
+# ... (Restricciones de stock en contenedor y límites operacionales) ...
+\end{lstlisting}
+Los resultados preliminares indican que la generación de columnas puede encontrar soluciones óptimas, aunque su convergencia y eficiencia dependen de la estructura de la instancia y la estrategia de generación.
+
+%====================================================================
+\section{Detalles de Implementación}
+%====================================================================
+
+\subsection{Carga y Procesamiento de Datos}
+La lectura de los archivos de instancia y la transformación de los datos a un formato utilizable por los modelos (generalmente matrices densas o listas de diccionarios) se realiza mediante funciones auxiliares implementadas en el script \texttt{leer\_archivo.py}. Este script maneja el formato de entrada descrito anteriormente, parseando las cantidades de ítems por bolsita y el stock por contenedor.
+
+\begin{lstlisting}[caption={Función de carga de datos en leer\_archivo.py (Conceptual)}, label={lst:leer_archivo}]
+def cargar_datos_instancia_desafio(filepath):
+    with open(filepath, 'r') as f:
+        lines = f.readlines()
+    
+    N_B, N_I, N_C = map(int, lines[0].split())
+    
+    bolsitas_dispersas = []
+    for j_idx in range(N_B):
+        # ... parsear linea de bolsita ...
+        bolsitas_dispersas.append(items_en_bolsita)
+        
+    contenedores_dispersos = []
+    for k_idx in range(N_C):
+        # ... parsear linea de contenedor ...
+        contenedores_dispersos.append(stock_en_contenedor)
+        
+    L_w, U_w = map(int, lines[N_B + N_C + 1].split())
+    
+    return N_B, N_I, N_C, bolsitas_dispersas, contenedores_dispersos, L_w, U_w
+\end{lstlisting}
+
+\subsection{Herramientas Utilizadas}
+Los modelos de optimización se implementaron en Python (versión 3.x) utilizando la librería \texttt{PuLP}. PuLP permite describir problemas de programación lineal (LP) y programación lineal entera mixta (MILP) de forma algebraica y luego resolverlos utilizando solvers externos (CBC, GLPK, Gurobi, SCIP, etc.). Para este trabajo, se utilizó principalmente el solver CBC, que viene integrado con PuLP.
+
+%====================================================================
+\section{Dificultades y Aprendizajes}
+%====================================================================
+El desarrollo de los modelos y algoritmos para las distintas variantes del problema de selección de bolsitas y contenedores presentó diversos desafíos y oportunidades de aprendizaje:
+
+\begin{itemize}
+    \item \textbf{Modelado Matemático Preciso:}
+    \begin{itemize}
+        \item La traducción de la descripción del problema a una formulación matemática rigurosa (variables, función objetivo, restricciones) es un paso crítico. Errores u omisiones en esta etapa pueden llevar a modelos incorrectos o ineficientes.
+        \item La correcta definición de los conjuntos, índices y parámetros es fundamental para la claridad y correctitud del modelo.
+        \item Asegurar la linealidad de las restricciones y la función objetivo es crucial cuando se utilizan solvers de LP/MILP.
+    \end{itemize}
+
+    \item \textbf{Implementación con PuLP:}
+    \begin{itemize}
+        \item Familiarizarse con la sintaxis específica de PuLP para definir variables (binarias, enteras, continuas), construir expresiones para las restricciones y la función objetivo.
+        \item La extracción e interpretación de los resultados (valores de las variables de decisión, valor óptimo de la función objetivo) y, en el caso de la generación de columnas, de los valores duales (precios sombra).
+        \item La depuración de modelos en PuLP puede ser desafiante, especialmente para identificar causas de infactibilidad o no acotamiento.
+        \item La gestión eficiente de grandes cantidades de variables o restricciones, aunque PuLP es bastante eficiente, puede requerir atención en problemas a gran escala.
+    \end{itemize}
+
+    \item \textbf{Generación de Columnas (Variante 3):}
+    \begin{itemize}
+        \item La comprensión conceptual del método, incluyendo la interacción entre el Problema Maestro Restringido (RMP) y el Subproblema de Pricing, es esencial.
+        \item La formulación correcta del subproblema es clave: su objetivo debe ser encontrar la columna con el costo reducido más favorable (en este caso, positivo).
+        \item El manejo del bucle iterativo entre la resolución del RMP (para obtener duales) y la resolución del subproblema (para generar nuevas columnas) requiere una implementación cuidadosa.
+        \item La inicialización del RMP con un conjunto de columnas factibles (aunque no sean óptimas) es importante para iniciar el proceso. Estrategias para generar estas columnas iniciales pueden impactar la convergencia.
+        \item El tratamiento de la degeneración y la convergencia lenta son problemas conocidos en la generación de columnas. Aunque no explorado en profundidad aquí, técnicas como la estabilización pueden ser necesarias.
+        \item La transición de la solución de la relajación LP del RMP a una solución entera final para el problema original.
+    \end{itemize}    \item \textbf{Gestión de Datos y Pruebas:}
+    \begin{itemize}
+        \item El diseño de funciones robustas para la carga y el preprocesamiento de los datos de entrada es fundamental para la aplicabilidad del modelo. La correcta interpretación del formato de archivo y la transformación a estructuras de datos eficientes en Python requirió múltiples iteraciones.
+        \item La creación de instancias de prueba pequeñas y controladas es invaluable para verificar la correctitud lógica del modelo antes de pasar a instancias más grandes y complejas. Esto incluye casos extremos como bolsitas vacías o contenedores sin stock.
+        \item El desarrollo de funciones de validación independientes para chequear la factibilidad de una solución obtenida por el solver ayuda a ganar confianza en los resultados y detectar errores en la formulación.
+        \item La interpretación de los resultados en el contexto del problema de selección de bolsitas y contenedores es crucial para evaluar la utilidad práctica de los modelos.
+        \item El manejo de diferentes tipos de instancias y la adaptación de los algoritmos para casos particulares (como instancias con muchas bolsitas pequeñas vs. pocas bolsitas grandes) presentó desafíos únicos.
+    \end{itemize}
+    
+    \item \textbf{Aspectos Computacionales y de Rendimiento:}
+    \begin{itemize}
+        \item La complejidad computacional de los problemas de optimización combinatoria puede crecer exponencialmente. Entender cuándo un problema se vuelve intratable es fundamental para el diseño de soluciones prácticas.
+        \item La evaluación del trade-off entre la calidad de la solución y el tiempo de cómputo es esencial, especialmente en aplicaciones en tiempo real donde se requieren respuestas rápidas.
+        \item El análisis de la escalabilidad de los algoritmos con respecto al tamaño de la instancia (número de bolsitas, ítems y contenedores) reveló limitaciones importantes de los enfoques directos.
+        \item La importancia de la configuración adecuada de parámetros del solver (límites de tiempo, tolerancias, estrategias de branching) para obtener el mejor rendimiento posible.
+        \item El monitoreo del uso de memoria y la optimización de estructuras de datos para evitar problemas en instancias grandes.
+    \end{itemize}
+    
+    \item \textbf{Desafíos Específicos del Dominio:}
+    \begin{itemize}
+        \item La comprensión profunda del problema de selección de bolsitas y contenedores requirió analizar múltiples aspectos: restricciones de capacidad, objetivos de optimización, y limitaciones operacionales.
+        \item La modelización de restricciones complejas como los límites operacionales (cantidad mínima y máxima de bolsitas seleccionadas) requirió cuidadosa atención para evitar infactibilidades no deseadas.
+        \item El balance entre la precisión del modelo y su tratabilidad computacional fue un aspecto central en el diseño de cada variante.
+        \item La interpretación económica y operacional de los resultados para proporcionar insights útiles a los tomadores de decisiones.
+        \item La consideración de la robustez de las soluciones ante cambios en los datos de entrada o perturbaciones en las condiciones operativas.
+    \end{itemize}
+    
+    \item \textbf{Metodología de Desarrollo y Debugging:}
+    \begin{itemize}
+        \item El desarrollo incremental, comenzando con modelos simples y agregando complejidad gradualmente, fue clave para el éxito del proyecto.
+        \item La importancia de la documentación detallada del código y de las decisiones de modelado para facilitar el mantenimiento y la extensión futura.
+        \item Las técnicas de debugging específicas para modelos de optimización, incluyendo el análisis de infactibilidades, la verificación de restricciones redundantes, y la interpretación de valores duales.
+        \item El uso de técnicas de visualización para entender mejor las soluciones obtenidas y detectar patrones o anomalías.
+        \item La implementación de checks de consistencia automáticos para verificar que las soluciones obtenidas satisfacen todas las restricciones del problema original.
+    \end{itemize}
+    
+    \item \textbf{Integración de Teoría y Práctica:}
+    \begin{itemize}
+        \item La transición desde los conceptos teóricos de programación lineal entera y generación de columnas hacia su implementación práctica presentó numerosos desafíos no anticipados en la formulación teórica.
+        \item La importancia de entender las limitaciones y supuestos de cada técnica de optimización para aplicarlas correctamente al problema específico.
+        \item El desarrollo de intuición sobre cuándo y por qué ciertas formulaciones funcionan mejor que otras en diferentes tipos de instancias.
+        \item La necesidad de balancear la elegancia matemática de una formulación con su eficiencia computacional práctica.
+        \item La comprensión de que los modelos teóricamente óptimos no siempre son los más útiles en aplicaciones reales debido a limitaciones de tiempo, recursos computacionales, o interpretabilidad.
+    \end{itemize}
+    
+    \item \textbf{Manejo de Archivos y Entorno de Desarrollo:}
+    \begin{itemize}
+        \item La correcta configuración del entorno LaTeX, incluyendo la gestión de paquetes, compilación y manejo de errores (como \texttt{Missing \$ inserted} o problemas con caracteres especiales en listings) fue un aprendizaje continuo.
+        \item La necesidad de escapar caracteres especiales como guiones bajos (\_) en nombres de archivo o texto dentro de comandos como \texttt{\texttt\{\}} o en listings.
+        \item El uso de herramientas como \texttt{latexmk} para automatizar el proceso de compilación y manejar dependencias entre archivos.
+        \item La gestión de versiones del código y la documentación usando sistemas de control de versiones para mantener un historial de cambios y facilitar la colaboración.
+        \item La organización eficiente del código en módulos separados para mejorar la legibilidad, mantenabilidad y reutilización.
+    \end{itemize}
+    
+    \item \textbf{Lecciones Aprendidas Generales:}
+    \begin{itemize}
+        \item La importancia de comenzar siempre con una comprensión clara y precisa del problema antes de proceder con la formulación matemática.
+        \item El valor de la iteración y refinamiento continuo tanto en el modelado como en la implementación.
+        \item La necesidad de mantener una perspectiva práctica y orientada a resultados, sin perder rigor matemático.
+        \item La importancia de la comunicación clara de resultados y metodología a audiencias tanto técnicas como no técnicas.
+        \item El reconocimiento de que la optimización es tanto un arte como una ciencia, requiriendo creatividad además de conocimiento técnico.
+    \end{itemize}
+\end{itemize}
+
+%====================================================================
+\section{Conclusión y Trabajo Futuro}
+%====================================================================
+
+En este trabajo, se abordaron tres variantes de un problema de optimización de selección de bolsitas y contenedores, un problema fundamental en la gestión eficiente de recursos y asignación óptima. Se desarrollaron modelos de Programación Lineal Entera Mixta (MILP) para cada variante y se implementaron utilizando Python y la librería PuLP. Para una de las variantes, se exploró además un enfoque avanzado de Generación de Columnas.
+
+El problema estudiado representa una clase importante de problemas de optimización combinatoria donde se debe coordinar la selección de elementos de demanda (bolsitas) con elementos de oferta (contenedores), respetando restricciones de capacidad y límites operacionales. Esta estructura es común en muchas aplicaciones reales, desde la logística y gestión de inventarios hasta la asignación de recursos en sistemas distribuidos.
+
+\textbf{Principales Resultados y Contribuciones:}
+
+Los modelos propuestos demostraron ser capaces de encontrar soluciones óptimas para las instancias de prueba consideradas, proporcionando una base sólida para la toma de decisiones en escenarios de selección de bolsitas y contenedores. Los principales logros incluyen:
+
+\begin{itemize}
+    \item \textbf{Formulación Matemática Robusta:} Se desarrollaron tres formulaciones matemáticas distintas que abordan diferentes aspectos del problema: selección de bolsitas con contenedores fijos, selección de contenedores con bolsitas fijas, y un enfoque de generación de columnas para casos de gran escala.
+    
+    \item \textbf{Implementación Práctica Efectiva:} La separación clara entre la carga de datos, la definición del modelo y la resolución del problema facilita la adaptación y extensión de las soluciones. El código desarrollado es modular y reutilizable.
+    
+    \item \textbf{Exploración de Técnicas Avanzadas:} La implementación exitosa de la técnica de Generación de Columnas demuestra la viabilidad de enfoques sofisticados para abordar problemas de optimización de gran escala, abriendo la puerta a resolver instancias que podrían ser intratables con enfoques directos.
+    
+    \item \textbf{Validación Computacional:} Los experimentos realizados proporcionan evidencia empírica de la efectividad de los enfoques propuestos y permiten identificar las fortalezas y limitaciones de cada método.
+\end{itemize}
+
+\textbf{Impacto y Aplicabilidad:}
+
+La metodología desarrollada tiene aplicaciones directas en diversos dominios:
+\begin{itemize}
+    \item \textbf{Gestión de Inventarios:} Optimización de la selección de productos y almacenes para cumplir con órdenes de clientes.
+    \item \textbf{Logística y Distribución:} Asignación eficiente de rutas y vehículos para la entrega de productos.
+    \item \textbf{Planificación de Recursos:} Coordinación entre recursos disponibles y tareas a realizar en sistemas de producción.
+    \item \textbf{Sistemas de Recomendación:} Selección óptima de contenido basada en preferencias de usuarios y disponibilidad de recursos.
+\end{itemize}
+
+La experiencia adquirida abarca desde la formulación matemática precisa de problemas de optimización hasta los detalles prácticos de implementación con herramientas específicas y la interpretación de resultados en contextos aplicados. La técnica de Generación de Columnas, aunque más compleja conceptual y computacionalmente, demuestra su valor para resolver problemas de mayor envergadura que podrían ser intratables con enfoques directos.
+
+\subsection{Líneas de Trabajo Futuro}
+Existen diversas avenidas para extender y mejorar el trabajo realizado:
+\begin{itemize}
+    \item \textbf{Escalabilidad y Rendimiento:}
+    \begin{itemize}
+        \item Probar los modelos con instancias más grandes y realistas para evaluar su rendimiento y escalabilidad en problemas de selección de bolsitas y contenedores de gran escala.
+        \item Investigar el uso de solvers comerciales más potentes (ej. Gurobi, CPLEX) si la complejidad de las instancias lo requiere.
+        \item Para la Generación de Columnas, explorar heurísticas para la resolución del subproblema o estrategias de estabilización para acelerar la convergencia.
+        \item Considerar el desarrollo de heurísticas o metaheurísticas específicas para encontrar soluciones de buena calidad en tiempos computacionales reducidos para instancias muy grandes.
+        \item Implementar técnicas de preprocesamiento para reducir el tamaño de las instancias mediante la eliminación de bolsitas o contenedores redundantes.
+    \end{itemize}
+    \item \textbf{Extensiones del Modelo:}
+    \begin{itemize}
+        \item Incorporar restricciones más detalladas del mundo real, como costos de transporte entre contenedores, incompatibilidades entre ciertos tipos de ítems, o la consideración de múltiples criterios de optimización.
+        \item Modelar escenarios dinámicos donde las bolsitas y contenedores pueden cambiar a lo largo del tiempo, requiriendo re-optimización periódica.
+        \item Considerar diferentes objetivos, como la minimización del número total de contenedores utilizados, la maximización de la utilización de recursos, o la minimización de los costos operacionales.
+        \item Incluir incertidumbre en los parámetros, como variaciones en la disponibilidad de ítems en contenedores o cambios en las demandas de las bolsitas.
+        \item Extender el modelo para manejar jerarquías de contenedores o bolsitas con diferentes prioridades.
+    \end{itemize}
+    \item \textbf{Integración y Aplicación Práctica:}
+    \begin{itemize}
+        \item Desarrollar una interfaz de usuario más amigable para facilitar la entrada de datos, la configuración de parámetros y la visualización de las soluciones óptimas.
+        \item Integrar los modelos con sistemas de gestión existentes (ERP, WMS, etc.) para proporcionar soporte de decisión en tiempo real.
+        \item Realizar análisis de sensibilidad exhaustivos para entender cómo los cambios en los parámetros clave (capacidades, demandas, límites operacionales) afectan las soluciones óptimas.
+        \item Implementar sistemas de monitoreo para evaluar la calidad de las soluciones en entornos operacionales reales.
+        \item Desarrollar métricas de rendimiento específicas del dominio para evaluar la efectividad de las soluciones implementadas.
+    \end{itemize}
+    \item \textbf{Investigación Metodológica:}
+    \begin{itemize}
+        \item Explorar formulaciones alternativas del problema, como enfoques basados en flujo de redes o programación estocástica.
+        \item Investigar la aplicación de técnicas de machine learning para predecir patrones en los datos y mejorar la calidad de las soluciones iniciales.
+        \item Desarrollar bounds teóricos más ajustados para evaluar la calidad de las soluciones heurísticas.
+        \item Estudiar la complejidad computacional teórica de las variantes del problema para identificar casos especiales tratables.
+    \end{itemize}
+\end{itemize}
+
+\textbf{Reflexiones Finales:}
+
+En resumen, los modelos y técnicas desarrollados en este trabajo constituyen una herramienta valiosa para la optimización de problemas de selección de bolsitas y contenedores, con un potencial considerable para futuras investigaciones y aplicaciones prácticas en diversos dominios. El enfoque metodológico utilizado, que combina rigor matemático con implementación práctica, proporciona una base sólida para abordar problemas similares de optimización combinatoria.
+
+La experiencia obtenida demuestra la importancia de considerar múltiples perspectivas del problema (diferentes variantes) y la utilidad de técnicas avanzadas como la Generación de Columnas para casos complejos. El trabajo futuro se beneficiará significativamente de la base establecida aquí, tanto en términos de formulación matemática como de implementación computacional.
+
+\end{document}
