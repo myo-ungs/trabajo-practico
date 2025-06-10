@@ -17,7 +17,6 @@ class Contenedor:
     items: list[Item]  # Lista de ítems (con cantidad y beneficio)
     beneficio: int = 1
 
-
 @dataclass
 class Parametros:
     total_items: int
