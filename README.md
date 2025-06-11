@@ -1,6 +1,5 @@
-# Trabajo Práctico - Modelado y Optimización
-
 <div align="center">
+  <h1>Trabajo Práctico - Modelado y Optimización</h1>
   <h2>Universidad Nacional General Sarmiento</h2>
   <h3>Licenciatura en Sistemas</h3>
   <br>
@@ -12,23 +11,18 @@
   <br><br>
 </div>
 
-## Descripción del problema
+---
 
-Este trabajo práctico aborda un problema de optimización lineal relacionado con la asignación de recursos.
+## Descripción General
 
-### Definiciones
+Este trabajo práctico está dividido en dos grandes bloques:
 
-Sea:
+- **Entrada en calor:** resolución de dos problemas clásicos de optimización combinatoria mediante programación lineal entera.
+- **Desafío:** modelado y resolución de un problema complejo utilizando técnicas como descomposición y generación de columnas.
 
-- $I = \{0, 1, ..., i-1\}$ un conjunto de tipos de ítems
-- $O = \{0, 1, ..., o-1\}$ un conjunto de bolsitas
-- $A = \{0, 1, ..., a-1\}$ un conjunto de contenedores
+---
 
-Cada bolsita $j \in O$ contiene una cierta cantidad de ítems $i \in I$. Esto se representa con $c_{ji}$.
-
-De manera similar, cada contenedor $j \in A$ contiene una cierta cantidad de ítems $i \in I$, representado por $d_{ji}$.
-
-Cada ítem proporciona un beneficio unitario por su uso.
+## Entrada en Calor
 
 ### Problema 1
 
@@ -37,14 +31,6 @@ El primer problema consiste en encontrar un contenedor $a \in A$ y un subconjunt
 1. La cantidad de veces que aparece cada ítem $i \in I$ en el contenedor alcanza para cubrir las apariciones de $i$ en $O'$.
 2. Se maximice la suma de beneficios del contenedor y de los ítems de las bolsitas $O'$.
 
-Formalmente:
-
-$$\max \sum_{i \in I} d_{ai} + \sum_{j \in O'} \sum_{i \in I} c_{ji}$$
-
-sujeto a:
-
-$$d_{ai} \geq \sum_{j \in O'} c_{ji} \quad \forall i \in I$$
-
 ### Problema 2
 
 El segundo problema consiste en encontrar subconjuntos $A' \subseteq A$ de contenedores y $O' \subseteq O$ de bolsitas tales que:
@@ -52,13 +38,42 @@ El segundo problema consiste en encontrar subconjuntos $A' \subseteq A$ de conte
 1. La cantidad de veces que aparece cada ítem $i \in I$ en $A' alcanza para cubrir las apariciones de $i$ en $O'$.
 2. Se maximice la suma de beneficios de los contenedores de $A' y de los ítems de las bolsitas de $O'$.
 
-Formalmente:
+---
 
-$$\max \sum_{a \in A'}\sum_{i \in I} d_{ai} + \sum_{j \in O'} \sum_{i \in I} c_{ji}$$
+## Desafío
 
-sujeto a:
+El desafío consiste en resolver un problema de asignación de pasillos a órdenes para maximizar la cobertura, con restricciones sobre la cantidad de pasillos permitidos.
 
-$$\sum_{a \in A'} d_{ai} \geq \sum_{j \in O'} c_{ji} \quad \forall i \in I$$
+
+### Primera parte: Cantidad fija de pasillos
+
+Modelo que, dado un número máximo \( M \) de pasillos, selecciona órdenes y pasillos para maximizar la cobertura.
+
+**Archivo:** `parte1.py`
+
+
+### Segunda parte: Pasillos fijos
+
+Dado un conjunto de pasillos ya seleccionados, se eligen las órdenes que mejor se ajusten.
+
+**Archivo:** `parte2.py`
+
+
+### Tercera parte: Generación de columnas
+
+Se reformula el problema como un modelo maestro restringido, y se agregan variables (columnas) dinámicamente con un subproblema de pricing.
+
+**Archivo:** `parte3.py`  
+
+
+### Cuarta parte: Exploración iterativa
+
+Combina modelos de la primera y segunda parte. Se utiliza `Opt_cantidadPasillosFija` (modelo maestro) y `Opt_PasillosFijos` (submodelo) de forma iterativa, variando el número de pasillos \( k \), buscando mejorar los resultados globales.
+
+**Función:** `Opt_ExplorarCantidadPasillos`  
+**Archivo:** `parte4.py`
+
+---
 
 ## Requisitos
 
@@ -76,57 +91,24 @@ Para ejecutar este proyecto necesitarás:
 pip install pulp
 ```
 
-## Estructura del proyecto
-
-El proyecto consta de los siguientes archivos:
-
-- `modelos.py`: Define las clases para representar los datos del problema.
-- `leer_archivo.py`: Funciones para cargar los datos desde un archivo de entrada.
-- `resolver.py`: Implementación de los modelos de programación lineal para resolver los problemas planteados.
-- `entrada_test.txt`: Un archivo de ejemplo con datos de prueba.
-
-## Formato del archivo de entrada
-
-El formato del archivo de entrada es el siguiente:
-
-```
-o i a
-k tipo_item_1 cantidad_1 tipo_item_2 cantidad_2 ... tipo_item_k cantidad_k
-...
-l tipo_item_1 cantidad_1 tipo_item_2 cantidad_2 ... tipo_item_l cantidad_l
-...
-```
-
-Donde:
-
-- Primera línea: `o` (número de bolsitas), `i` (número de tipos de ítems), `a` (número de contenedores)
-- Siguientes `o` líneas: descripción de cada bolsita
-  - `k` seguido de `k` pares `(tipo_item, cantidad)`
-- Siguientes `a` líneas: descripción de cada contenedor
-  - `l` seguido de `l` pares `(tipo_item, cantidad)`
-
 ## Ejecución
 
 Para ejecutar el programa con los datos de prueba:
 
+### Para la entrada en calor:
 ```bash
-python resolver.py
+python .\entrada_en_calor\main.py
 ```
 
-Por defecto, el programa utiliza el archivo `entrada_test.txt`, pero puede modificarse para usar otros archivos de entrada.
+### Para la entrada el desafio:
+```bash
+python .\desafio\part1.py
+python .\desafio\part2.py
+python .\desafio\part3.py
+python .\desafio\part4.py
+python .\desafio\part5.py
+```
 
-## Ejemplo
-
-El archivo de entrada `entrada_test.txt` contiene un ejemplo con:
-
-- 3 bolsitas
-- 4 tipos de ítems (0, 1, 2, 3)
-- 2 contenedores
-
-El programa resuelve los dos problemas y muestra:
-
-1. Para el Problema 1: qué contenedor seleccionar y qué bolsitas incluir
-2. Para el Problema 2: qué subconjunto de contenedores y bolsitas seleccionar
 
 ## Implementación
 

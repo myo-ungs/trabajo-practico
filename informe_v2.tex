@@ -134,8 +134,7 @@
 \begin{itemize}
     \item $O$: conjunto de órdenes.
     \item $I$: conjunto de elementos.
-    \item $A_0 \subseteq A$: conjunto de pasillos preseleccionados.
-    \item $A_i$: conjunto de pasillos a visitar.
+    \item $A$: conjunto de pasillos.
     \item $LB$: límite inferior de unidades a recolectar.
     \item $UB$: límite superior de unidades a recolectar.
 \end{itemize}
@@ -233,7 +232,16 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
     En esta tercera parte se aborda la resolución del problema mediante un enfoque de \textbf{generación de columnas}, lo cual permite enfrentar instancias complejas de gran tamaño. La idea consiste en representar posibles decisiones como \textit{patrones}, cada uno formado por un par $(O, a)$, donde $O$ es un subconjunto de órdenes que pueden ser satisfechas exclusivamente utilizando el pasillo $a$. Estos patrones se codifican como vectores binarios de tamaño $|O| + |\mathcal{A}|$, indicando qué órdenes y qué pasillo participan en ese patrón. El modelo no considera todas las combinaciones posibles desde el inicio, sino que parte de un conjunto reducido y va incorporando nuevas columnas (patrones) sólo cuando tienen potencial de mejorar la solución. Este enfoque requiere desarrollar funciones específicas para construir el modelo inicial (\texttt{ConstruirModelo(...)}), y para agregar nuevos patrones (\texttt{AgregarColumna(...)}), garantizando que las combinaciones elegidas cumplan con todas las restricciones del problema.
 
 
-    \item \textbf{Parte 4: }
+    \item \textbf{Parte 4: Resolución completa del problema Desafío}
+
+    En esta etapa se aborda la resolución integral del problema \textit{Desafío}, integrando las estrategias desarrolladas en las partes anteriores. Para ello, se implementa el método \texttt{Opt\_ExplorarCantidadPasillos(umbral)}, que ejecuta de forma iterativa el modelo propuesto en la sección~\ref{sec:variante1} (función \texttt{Opt\_cantidadPasillosFija}), donde se considera una cantidad fija \(k\) de pasillos a seleccionar.
+    
+    Los valores de \(k\) se determinan a partir de la función \texttt{Rankear}, que estima el potencial de cada valor en función de la capacidad acumulada de los pasillos. Por cada \(k\), se ejecuta el modelo de la sección~\ref{sec:variante1} dentro del tiempo asignado, y se conserva la mejor solución encontrada.
+    
+    Una vez finalizada la etapa exploratoria, se fijan los pasillos de la mejor solución obtenida y se aplica el modelo de la sección~\ref{sec:variante2} (función \texttt{Opt\_PasillosFijos}), que refina la selección de órdenes en base a la disponibilidad real de los pasillos previamente seleccionados.
+    
+    Este enfoque permite encontrar una solución final más eficiente, combinando exploración amplia (con múltiples valores de \(k\)) y una etapa de mejora local. Se garantiza que el tiempo total de ejecución del método \texttt{Opt\_ExplorarCantidadPasillos(umbral)} no exceda el umbral de tiempo especificado.
+
 
     
 
@@ -241,6 +249,8 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
     
     
 \end{enumerate}
+
+\clearpage
 
 %====================================================================
 \section{Entrada en Calor}
@@ -279,6 +289,8 @@ Esta sección presenta el desarrollo matemático detallado de los modelos para l
 & x_a \in \{0,1\}, \quad \forall a \in A \\
 & y_o \in \{0,1\}, \quad \forall o \in O
 \end{align}
+
+\clearpage
 
 \subsection{Problema 2:}
 \label{sec:probl2}
@@ -320,6 +332,7 @@ x_a \in \{0,1\}, \quad \forall a \in A
 y_o \in \{0,1\}, \quad \forall o \in O
 \end{equation}
 
+\clearpage
 
 %====================================================================
 \section{El Desafió}
@@ -375,6 +388,8 @@ La implementación se encuentra en \texttt{parte1.py} y utiliza PuLP para la opt
 
 \end{lstlisting}
 
+\clearpage
+
 \subsection{Segunda parte:}
 \label{sec:variante2}
 
@@ -422,6 +437,8 @@ La implementación en \texttt{parte2.py} incluye validaciones para verificar que
 
 \end{lstlisting}
 
+\clearpage
+
 \subsection{Tercera parte:}
 \label{sec:variante3}
 
@@ -468,21 +485,55 @@ El archivo \texttt{parte3.py} implementa el algoritmo completo:
 
 \end{lstlisting}
 
+\clearpage
+
 \subsection{Cuarta parte:}
 \label{sec:variante4}
+
+
+\subsubsection{Formulación Matemática}
+
+En esta parte se combinan dos modelos de optimización previamente definidos:
+
+\begin{itemize}
+    \item El modelo de la \textbf{Primera parte} (sección~\ref{sec:variante1}) es utilizado por la función \\ \texttt{Opt\_cantidadPasillosFija(k, umbral)}. 
+    \item El modelo de la \textbf{Segunda parte} (sección~\ref{sec:variante2}) es utilizado por la función \\ \texttt{Opt\_PasillosFijos(umbral)}.
+\end{itemize}
+
+Ambos modelos son de programación lineal entera binaria y comparten la función objetivo de maximizar la cobertura de órdenes. Se reutilizan los mismos conjuntos, parámetros y variables definidos en las secciones anteriores.
+
+\subsubsection{Algoritmo General}
+
+El procedimiento llevado a cabo por 
+\texttt{Opt\_ExplorarCantidadPasillos(umbral)} sigue estos pasos:
+
+\begin{enumerate}
+    \item Se ejecuta la función \texttt{Rankear} para priorizar valores de \(k\) según el potencial de cobertura de cada cantidad de pasillos.
+    \item Para cada \(k\) priorizado, se ejecuta \texttt{Opt\_cantidadPasillosFija(k, tiempo)} (modelo de la sección~\ref{sec:variante1}), hasta alcanzar el límite de tiempo.
+    \item Se selecciona la mejor solución hallada y se extraen los pasillos utilizados.
+    \item Con estos pasillos fijados, se ejecuta \texttt{Opt\_PasillosFijos(tiempo restante)} (modelo de la sección~\ref{sec:variante2}) para refinar la selección de órdenes.
+\end{enumerate}
+\subsubsection{Implementación en Python}
+
+El archivo \texttt{parte4.py} contiene la implementación completa del procedimiento descrito. A continuación se muestra un esquema simplificado:
+
+\begin{lstlisting}[language=Python, caption=Algoritmo general de exploración y refinamiento]
+
+\end{lstlisting}
+
+\clearpage
 
 \subsection{Quinta parte:}
 \label{sec:variante5}
 
-\subsection{Sistema de Carga de Datos}
 
-Todas las implementaciones utilizan un sistema común desarrollado en \texttt{leer\_archivo.py} y \texttt{modelos.py}:
+\subsubsection{Formulación Matemática}
 
-\begin{lstlisting}[language=Python, caption=Sistema de carga de datos]
+\subsubsection{Algoritmo General}
 
-\end{lstlisting}
+\clearpage
 
-\subsection{Herramientas y Tecnologías Utilizadas}
+\section{Herramientas y Tecnologías Utilizadas}
 
 \begin{itemize}
     \item \textbf{Python}: Lenguaje de programación principal

@@ -2,17 +2,17 @@ from cargar_input import leer_input
 from basic_solver import Basic
 
 # Cargar datos W, S, LB, UB como hacías antes
-W, S, LB, UB = leer_input("datos_de_entrada/input_ml.txt")
+W, S, LB, UB = leer_input("datos_de_entrada/input_0001.txt")
 
-#ejecutar problema 1
+# Ejecutar problema 1
 # opt = Basic(W, S, LB, UB)
 # opt.Opt_cantidadPasillosFija(2,30)
 
-#ejecutar problema 2, hay que poner en basic_solver self.pasillos_fijos = [1,3]
+# Ejecutar problema 2, hay que poner en basic_solver self.pasillos_fijos = [1,3]
 # opt = Basic(W, S, LB, UB)
 # opt.Opt_PasillosFijos(30)
 
-#ejecutar parte 3
+# Ejecutar parte 4
 # Buscar mejor solución explorando distintas cantidades de pasillos en 60 segundos
 basic = Basic(W, S, LB, UB)
 resultado = basic.Opt_ExplorarCantidadPasillos(60)

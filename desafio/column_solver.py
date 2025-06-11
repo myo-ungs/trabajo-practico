@@ -1,7 +1,7 @@
 import time
 from pulp import LpMaximize, LpProblem, LpVariable, lpSum, LpBinary, LpStatus, value
 
-class Basic:
+class Column:
     def __init__(self, W, S, LB, UB):
         self.W = W
         self.S = S
@@ -99,42 +99,10 @@ class Basic:
             "ordenes_seleccionadas": ordenes_seleccionadas,
             "pasillos_seleccionados": self.pasillos_fijos
         }
-
-    def Opt_ExplorarCantidadPasillos(self, umbral_total):
-        start = time.time()
-
-        # Inicializa la mejor solución y el mejor valor
-        mejor_sol = None
-        mejor_valor = -float('inf')
-
-        # Obtiene una lista ordenada (ranking)
-        ranking = self.Rankear()
-
-        for k in ranking:
-            # Calcula el tiempo restante para seguir ejecutando
-            tiempo_restante = umbral_total - (time.time() - start)
-            if tiempo_restante <= 0:
-                break
-
-            # Genera una solución usando una cantidad fija de pasillos 'k'
-            sol = self.Opt_cantidadPasillosFija(k, tiempo_restante)
-
-            # Actualiza la mejor solución y su valor
-            if sol and sol["valor_objetivo"] > mejor_valor:
-                mejor_valor = sol["valor_objetivo"]
-                mejor_sol = sol
-
-        # Si se encontró una solución inicial válida
-        if mejor_sol:
-            tiempo_restante = umbral_total - (time.time() - start)
-            if tiempo_restante > 0:
-                # Intenta refinar la solución
-                sol_refinada = self.Opt_PasillosFijos(tiempo_restante)
-                # Si la solución refinada es mejor, la actualiza como la mejor
-                if sol_refinada and sol_refinada["valor_objetivo"] > mejor_valor:
-                    mejor_sol = sol_refinada
-
-        return mejor_sol
+    
+    # HAY QUE IMPLEMENTAR --------------------------------
+    # def Opt_ExplorarCantidadPasillos(self, umbral_total):
+    # ----------------------------------------------------
 
     # Devuelve una lista de valores de 'k' (cantidad de pasillos) ordenados según
     # la capacidad total acumulada al elegir los k pasillos más capaces.
