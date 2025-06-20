@@ -167,8 +167,8 @@ def resolver_problema2(parametros: Parametros):
     
 if __name__ == "__main__":
     # Cargar parámetros desde el archivo
-    # nombre_archivo = "entrada_test.txt"
-    nombre_archivo = "input_0001.txt"
+    # nombre_archivo = "datos_de_entrada/entrada_test.txt"
+    nombre_archivo = "datos_de_entrada/input_0001.txt"
     parametros = cargar_parametros_desde_archivo(nombre_archivo)
     
     print(f"Cargando datos del archivo: {nombre_archivo}")
