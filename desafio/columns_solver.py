@@ -168,10 +168,12 @@ class Columns:
                 valor_objetivo = value(modelo.objective)
                 self.pasillos_fijos = list(pasillos_seleccionados)
 
+        dual_bound = getattr(modelo.objective, 'bound', lambda: None)()
         return {
             "valor_objetivo": valor_objetivo,
             "ordenes_seleccionadas": list(ordenes_seleccionadas),
-            "pasillos_seleccionados": list(pasillos_seleccionados)
+            "pasillos_seleccionados": list(pasillos_seleccionados),
+            "cota_dual": dual_bound
         }
 
     def Opt_PasillosFijos(self, umbral):

@@ -90,3 +90,58 @@ considerar usar la soluci´on del ´ultimo modelo usado para el par´ametro k.
  Agregar m´etodos para continuar ejecutando Opt cantidadPasillosFija(k, ...) si ya se
 hab´ıa ejecutado antes para ese valor de k, guardando el estado anterior (reusando el modelo
 usado previamente).
+
+6 Sexta parte
+Considerar las siguientes alternativas para intentar mejorar la performance de la secci´on 5.
+1. Elegir las columnas iniciales de manera m´as eficiente.
+2. Mejorar la funci´on Rankear; considerar (opcionalmente) el uso alg´un agente de inteligencia
+artificial.
+3. Eliminar las columnas que no se usaron en las ´ultimas (5?) iteraciones (sus variables asociadas
+estuvieron en 0).
+El objetivo aqu´ı es evaluar cada una de estas variantes, agreg´andolas al modelo de la secci´on 5
+(solo una por vez), y teste´andolas para las primeras 4 instancias del dataset A. Para ello, se debe
+generar un script que tome como par´ametro un archivo de configuraci´on archivo.cfg, con las l´ıneas:
+inPath=/path/to/input/files/
+threshold=10
+model1=/path/to/model1.py
+outPath1=/path/to/output/files/
+model2=/path/to/model2.py
+outPath2=/path/to/output/files/
+:::
+Luego, por cada modelo i que aparezca en archivo.cfg, ejecutar /path/to/modeli.py con cada
+archivo de input que aparezca en inPath y generar su output como outPathi/file.out. Los 4
+modelos que deben aparecer son el modelo de la secci´on 5 y las 3 variantes descriptas al comienzo de
+esta parte. El script tambi´en generar´a un archivo csv que se usar´a para mostrar en el informe una
+tabla como la que sigue, donde el umbral de tiempo total para cada ejecuci´on ser´a de 10 minutos.
+
+Instancia   M´etrica                             seccion 5     Col. iniciales    Rankear     Eliminar col.    
+-----------------------------------------------------------------------------------------------------------
+nombre1     Restricciones
+            # variables
+            # variables en ´ult. maestro
+            Cota dual
+            Mejor objetivo
+-----------------------------------------------------------------------------------------------------------
+nombre2     Restricciones
+            # variables
+            # variables en ´ult. maestro
+            Cota dual
+            Mejor objetivo
+-----------------------------------------------------------------------------------------------------------
+nombre3     Restricciones
+            # variables
+            # variables en ´ult. maestro
+            Cota dual
+            Mejor objetivo
+-----------------------------------------------------------------------------------------------------------
+nombre4     Restricciones
+            # variables
+            # variables en ´ult. maestro
+            Cota dual
+            Mejor objetivo
+-----------------------------------------------------------------------------------------------------------
+
+Las 4 columnas corresponden a los 4 modelos a evaluar. Cada una de las 4 filas se subdivide en
+otras 4 filas, en las que se indicar´an la cantidad de restricciones, la cantidad de variables del modelo
+inicial, la cantidad de variables en el ´ultimo modelo, la cota dual, y el mejor valor objetivo obtenido.
+En cada fila de la tabla, destacar con negrita el mejor valor.

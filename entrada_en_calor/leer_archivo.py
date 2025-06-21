@@ -56,6 +56,5 @@ def imprimir_parametros(parametros):
 
 # Ejemplo de uso
 if __name__ == "__main__":
-    # parametros = cargar_parametros_desde_archivo("entrada_test.txt")
     parametros = cargar_parametros_desde_archivo("input_0001.txt")
     imprimir_parametros(parametros)
