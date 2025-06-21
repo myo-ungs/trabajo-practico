@@ -3,10 +3,10 @@ from sklearn.cluster import KMeans
 import sys
 import os
 try:
-    from desafio.columns_solver import Columns as ColumnsBase
+    from parte5.columns_solver import Columns as ColumnsBase
 except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    from columns_solver import Columns as ColumnsBase
+    from parte5.columns_solver import Columns as ColumnsBase
 from cargar_input import leer_input
 import json
 

@@ -1,10 +1,11 @@
 import sys
 import os
 try:
-    from desafio.columns_solver import Columns as ColumnsBase
+    from parte5.columns_solver import Columns as ColumnsBase
 except ImportError:
+    # Añade '../parte5/' al sys.path si no se encuentra el módulo
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    from columns_solver import Columns as ColumnsBase
+    from parte5.columns_solver import Columns as ColumnsBase
 
 class Columns(ColumnsBase):
     def Opt_cantidadPasillosFija(self, k, umbral):
