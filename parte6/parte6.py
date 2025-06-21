@@ -100,16 +100,17 @@ def main():
     modelos = []        # Lista de nombres de modelos (ej: modelo1, modelo2...)
     out_paths = {}      # Diccionario: nombre_modelo -> path de salida
     model_paths = {}    # Diccionario: nombre_modelo -> path del script del modelo
+    parte6_dir = os.path.dirname(__file__) 
 
     # Busca en el config las líneas que empiezan con 'model' y 'outPath'
     for k, v in config.items():
         if k.startswith('model'):
-            idx = k[5:] 
+            idx = k[5:]
             modelos.append(f"modelo{idx}")
-            model_paths[f"modelo{idx}"] = v  
+            model_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)  # ← ruta absoluta al modelo
         if k.startswith('outPath'):
             idx = k[7:]
-            out_paths[f"modelo{idx}"] = v 
+            out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)  # ← idem para salida
 
     # metrica_dict almacenará los resultados para cada instancia y modelo
     metrica_dict = {}
