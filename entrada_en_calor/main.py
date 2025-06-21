@@ -1,6 +1,6 @@
 from pulp import LpMaximize, LpProblem, LpVariable, LpStatus, lpSum, LpBinary
 from leer_archivo import cargar_parametros_desde_archivo, imprimir_parametros
-from modelos import Parametros
+from clases import Parametros
 
 def resolver_problema1(parametros: Parametros):
     """

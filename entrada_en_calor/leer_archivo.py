@@ -1,4 +1,4 @@
-from modelos import Item, Bolsita, Contenedor, Parametros
+from clases import Item, Bolsita, Contenedor, Parametros
 
 # Formato del archivo de entrada:
 # - Primera línea: o (bolsitas), i (tipos de ítems), a (contenedores)

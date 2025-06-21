@@ -15,12 +15,34 @@
 \usepackage{hyperref}
 \hypersetup{
     colorlinks=true,
-    linkcolor=blue,
+    linkcolor=black,
     filecolor=magenta,      
     urlcolor=cyan,
     pdftitle={Optimización de Picking},
     pdfpagemode=FullScreen,
 }
+\usepackage{tocloft}
+
+\renewcommand{\cfttoctitlefont}{\centering\Huge\bfseries}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsecpagefont}{\bfseries}
+\setlength{\cftbeforesecskip}{8pt}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+
+\makeatletter
+\let\old@tocline\@tocline
+\def\@tocline#1#2#3#4#5#6#7{%
+  \old@tocline{#1}{#2}{#3}{#4}{#5}{#6}{\textcolor{black}{#7}}%
+}
+\makeatother
+
+\setcounter{section}{-1}
+\usepackage{enumitem}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\SetKwInput{KwData}{Datos}
+\SetKwInput{KwResult}{Resultado}
+\SetKwComment{Comment}{$\triangleright$\ }{}
+
 
 \begin{document}
 
@@ -29,7 +51,7 @@
     \vspace*{0.9in}
     
     % Título del informe
-    {\Huge \bfseries Informe de 1er Entrega \par}
+    {\Huge \bfseries Informe de Entrega Final\par}
     
     \vspace{1in}
     
@@ -60,7 +82,7 @@
     % Fecha
     % Pie de página opcional
     \vfill
-    {\Large 17 de Junio 2025 \par}
+    {\Large 26 de Junio 2025 \par}
     
 \end{titlepage}
 
@@ -113,10 +135,35 @@
 %====================================================================
 \section{Introducción}
 %====================================================================
+En este informe se presentan los resultados obtenidos tras la resolución de los problemas planteados, que incluyen unos problemas iniciales bajo el contexto \textit{Entrada en Calor} y, principalmente, el problema central denominado \textit{El Desafío}. El análisis se centra especialmente en las partes 4 a 7, que abordan la resolución integral y la mejora del problema.
 
+\subsection*{Descripción de los problemas}
 
+A continuación se describen brevemente los problemas de la entrada en calor y las diferentes etapas del \textit{Desafío}, poniendo énfasis en las fases 4 a 7 que constituyen el núcleo del estudio.
 
-\subsection{Definiciones importantes}
+\begin{itemize}
+    \item \textbf{Problemas iniciales (entrada en calor):}  
+    \begin{itemize}
+        \item \textit{Problema 1:} Selección óptima de un único contenedor para abastecer un conjunto de bolsitas, maximizando el beneficio total.  
+        \item \textit{Problema 2:} Generalización del anterior, permitiendo seleccionar múltiples contenedores para cubrir las demandas, incrementando la flexibilidad y complejidad.
+    \end{itemize}
+
+    \item \textbf{Partes 1 a 3 del Desafío:}  
+    Se abordan formulaciones iniciales para la selección de pasillos con cantidad fija (\textit{Parte 1}), selección con pasillos específicos (\textit{Parte 2}) y una estrategia avanzada basada en generación de columnas para manejar instancias grandes (\textit{Parte 3}).
+
+    \item \textbf{Partes 4 a 7:} \textit{(Enfoque principal de este informe)}  
+    \begin{itemize}
+        \item \textit{Parte 4:} Implementación de un método iterativo que explora diferentes cantidades de pasillos a seleccionar y refina la solución fijando pasillos para optimizar la selección de órdenes. Se garantiza el respeto al límite de tiempo total asignado.
+        
+        \item \textit{Parte 5:} Extensión de la parte 4, incorporando generación de columnas para mejorar la solución en problemas de gran escala.
+        
+        \item \textit{Parte 6:} Evaluación y propuesta de mejoras para la generación de columnas, como selección inicial eficiente, mejoras en la función de ranking y eliminación de columnas no utilizadas.
+        
+        \item \textit{Parte 7:} Integración opcional de las mejoras anteriores junto con modelos no lineales, técnicas de inteligencia artificial y metodologías avanzadas (por ejemplo, Branch \& Price), con el objetivo de competir eficazmente con diversas instancias del problema.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{Definiciones importantes}
 
 \subsubsection*{Entrada en Calor:}
 
@@ -139,37 +186,38 @@
     \item $UB$: límite superior de unidades a recolectar.
 \end{itemize}
 
-\subsection{Parámetros del Sistema}
 
-\subsubsection*{Entrada en Calor:} 
+% \subsection*{Parámetros del Sistema}
 
-\begin{itemize}
-    \item $c_{jt}$: Cantidad del producto $t$ requerida por la orden $j$
-    \item $d_{kt}$: Cantidad del producto $t$ disponible en el pasillo $k$
-    \item $\beta_j$: Beneficio obtenido al seleccionar la orden $j$
-    \item $\alpha_k$: Costo de utilizar el pasillo $k$
-    \item $L_w, U_w$: Límites inferior y superior para la ola de trabajo (wave), que definen el rango permitido para la cantidad total de productos procesados
-\end{itemize}
+% \subsubsection*{Entrada en Calor:} 
 
-\subsubsection*{El Desafío:}
+% \begin{itemize}
+%     \item $c_{jt}$: Cantidad del producto $t$ requerida por la orden $j$
+%     \item $d_{kt}$: Cantidad del producto $t$ disponible en el pasillo $k$
+%     \item $\beta_j$: Beneficio obtenido al seleccionar la orden $j$
+%     \item $\alpha_k$: Costo de utilizar el pasillo $k$
+%     \item $L_w, U_w$: Límites inferior y superior para la ola de trabajo (wave), que definen el rango permitido para la cantidad total de productos procesados
+% \end{itemize}
 
-\begin{itemize}
-    \item $c_{jt}$: Cantidad del producto $t$ requerida por la orden $j$
-    \item $d_{kt}$: Cantidad del producto $t$ disponible en el pasillo $k$
+% \subsubsection*{El Desafío:}
 
-\end{itemize}
+% \begin{itemize}
+%     \item $c_{jt}$: Cantidad del producto $t$ requerida por la orden $j$
+%     \item $d_{kt}$: Cantidad del producto $t$ disponible en el pasillo $k$
 
-\subsection{Formato de Datos de Entrada}
+% \end{itemize}
+
+\subsection*{Formato de Datos de Entrada}
 
 Los datos del problema se proporcionan en archivos de texto estructurados con el siguiente formato:
 
-\subsubsection*{Entrada en Calor:}
+% \subsubsection*{Entrada en Calor:}
 
-\begin{itemize}
-    \item \textbf{Primera línea:} contiene tres enteros $o$, $i$, $a$ que indican la cantidad de bolsitas, el número de items diferentes y la cantidad de contenedores, respectivamente.
-    \item \textbf{Siguientes $o$ líneas:} cada línea comienza con un entero \(k\), seguido por \(k\) pares de enteros, representando el número del item y la cantidad de veces que aparece en la bolsita. Dentro de este grupo de líneas, y para \(j \in \{1, \ldots, o\}\), la \(j\)-ésima línea contiene datos relacionados con la bolsita indexada por \(j-1\), significando que las bolsitas están numeradas de \(0\) a \(o-1\). Además, se asume que los items están indexados de \(0\) a \(i-1\).
-    \item \textbf{Siguientes $J$ líneas:} cada línea comienza con un entero \(l\), seguido por \(l\) pares de enteros, representando el número del item y el número de unidades disponibles en el contenedor. Similar al caso de las bolsitas, dentro de este grupo de líneas, y para \(j \in \{1, \ldots, a\}\), la \(j\)-ésima línea contiene datos relacionados con el contenedor indexado por \(j-1\), significando que los contenedores están numerados de \(0\) a \(a-1\).
-\end{itemize}
+% \begin{itemize}
+%     \item \textbf{Primera línea:} contiene tres enteros $o$, $i$, $a$ que indican la cantidad de bolsitas, el número de items diferentes y la cantidad de contenedores, respectivamente.
+%     \item \textbf{Siguientes $o$ líneas:} cada línea comienza con un entero \(k\), seguido por \(k\) pares de enteros, representando el número del item y la cantidad de veces que aparece en la bolsita. Dentro de este grupo de líneas, y para \(j \in \{1, \ldots, o\}\), la \(j\)-ésima línea contiene datos relacionados con la bolsita indexada por \(j-1\), significando que las bolsitas están numeradas de \(0\) a \(o-1\). Además, se asume que los items están indexados de \(0\) a \(i-1\).
+%     \item \textbf{Siguientes $J$ líneas:} cada línea comienza con un entero \(l\), seguido por \(l\) pares de enteros, representando el número del item y el número de unidades disponibles en el contenedor. Similar al caso de las bolsitas, dentro de este grupo de líneas, y para \(j \in \{1, \ldots, a\}\), la \(j\)-ésima línea contiene datos relacionados con el contenedor indexado por \(j-1\), significando que los contenedores están numerados de \(0\) a \(a-1\).
+% \end{itemize}
 
 \subsubsection*{El Desafío:}
 
@@ -199,58 +247,233 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
     \item \textbf{Última línea:} contiene dos enteros $LB$ y $UB$, que representan el límite inferior y superior de unidades a recolectar, respectivamente.
 \end{itemize}
 
-\subsection{Descripción de problemas:}
+\clearpage
 
-\subsubsection*{Entrada en Calor:}
+\section{Parte 4}
+\label{sec:variante4}
 
-\begin{enumerate}
-    \item \textbf{Problema 1: Encontrar $a$ }
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+        \item Descripción del problema que resuelve cada modelo.
+
+            En esta etapa se aborda la resolución integral del problema \textit{Desafío}, integrando las estrategias desarrolladas en las partes anteriores. Para ello, se implementa el método \texttt{Opt\_ExplorarCantidadPasillos(umbral)}, que ejecuta de forma iterativa el modelo propuesto en la primera parte del desafio (función \texttt{Opt\_cantidadPasillosFija}), donde se considera una cantidad fija \(k\) de pasillos a seleccionar.
     
-     Este problema modela una situación en la que se desea elegir un único contenedor que debe abastecer un conjunto de bolsitas. El desafío está en elegir la mejor combinación posible de bolsitas que pueden ser cubiertas por ese contenedor, de forma tal que el beneficio total sea máximo.
+            Los valores de \(k\) se determinan a partir de la función \texttt{Rankear}, que estima el potencial de cada valor en función de la capacidad acumulada de los pasillos. Por cada \(k\), se ejecuta el modelo de la primera parte dentro del tiempo asignado, y se conserva la mejor solución encontrada.
+            
+            Una vez finalizada la etapa exploratoria, se fijan los pasillos de la mejor solución obtenida y se aplica el modelo de la segunda parte del desafio (función \texttt{Opt\_PasillosFijos}), que refina la selección de órdenes en base a la disponibilidad real de los pasillos previamente seleccionados.
+            
+            Este enfoque permite encontrar una solución final más eficiente, combinando exploración amplia (con múltiples valores de \(k\)) y una etapa de mejora local. Se garantiza que el tiempo total de ejecución del método \texttt{Opt\_ExplorarCantidadPasillos(umbral)} no exceda el umbral de tiempo especificado.
+            
+        \item Definición de variables utilizadas.
+
+            \begin{itemize}
+                \item \(x_o \in \{0,1\}\): variable binaria que indica si la orden \(o\) es seleccionada (\(1\)) o no (\(0\)).
+                \item \(y_a \in \{0,1\}\): variable binaria que indica si el pasillo \(a\) es seleccionado (\(1\)) o no (\(0\)).
+                \item Parámetros:
+                \begin{itemize}
+                    \item \(W_{o,i}\): cantidad del elemento \(i\) en la orden \(o\).
+                    \item \(S_{a,i}\): capacidad disponible del elemento \(i\) en el pasillo \(a\).
+                    \item \(\mathrm{LB}\): límite inferior de la cantidad total de elementos a recolectar.
+                    \item \(\mathrm{UB}\): límite superior de la cantidad total de elementos a recolectar.
+                    \item \(k\): cantidad fija de pasillos a visitar en la etapa exploratoria.
+                \end{itemize}
+            \end{itemize}
+
+        \item Modelo matemático completo.
+
+            Para un valor fijo de \(k\), el modelo a optimizar es:
+
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{o=1}^{n} \sum_{i=1}^{m} W_{o,i} \cdot x_o \\
+            \text{s.t} \quad
+            & \mathrm{LB} \leq \sum_{o=1}^n \sum_{i=1}^m W_{o,i} \cdot x_o \leq \mathrm{UB} \\
+            & \sum_{o=1}^n W_{o,i} \cdot x_o \leq \sum_{a \in P_k} S_{a,i} \cdot y_a, \quad \forall i = 1,\ldots,m \\
+            & \sum_{a \in P_k} y_a = k \\
+            & x_o \in \{0,1\}, \quad y_a \in \{0,1\}
+            \end{aligned}
+            \]
+
+            donde \(P_k\) es el conjunto de pasillos considerados para la cantidad fija \(k\), determinado por la función \texttt{Rankear} y la reutilización de soluciones previas.
+
+            Luego, con los pasillos fijos seleccionados \(\hat{P}\), se resuelve el modelo de refinamiento:
+
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{o=1}^{n} \sum_{i=1}^{m} W_{o,i} \cdot x_o \\
+            \text{s.t} \quad
+            & \mathrm{LB} \leq \sum_{o=1}^n \sum_{i=1}^m W_{o,i} \cdot x_o \leq \mathrm{UB} \\
+            & \sum_{o=1}^n W_{o,i} \cdot x_o \leq \sum_{a \in \hat{P}} S_{a,i}, \quad \forall i = 1,\ldots,m \\
+            & x_o \in \{0,1\}
+            \end{aligned}
+            \]
+
+        \item Explicación de la función objetivo y las restricciones.
+
+            \begin{itemize}
+                \item \textbf{Función objetivo:} maximizar la cantidad total de elementos recolectados, representado por la suma ponderada de elementos en las órdenes seleccionadas.
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item La suma total de elementos recolectados debe estar dentro de los límites inferiores y superiores (\(\mathrm{LB}\) y \(\mathrm{UB}\)), garantizando que la solución sea viable y esté dentro de los parámetros deseados.
+                    \item La cantidad total de cada elemento recolectado no puede exceder la capacidad disponible de los pasillos seleccionados.
+                    \item En la primera etapa, se seleccionan exactamente \(k\) pasillos.
+                    \item Las variables \(x_o\) y \(y_a\) son binarias, lo que refleja decisiones de inclusión o exclusión de órdenes y pasillos, respectivamente.
+                \end{itemize}
+            \end{itemize}
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+
     
-    \item \textbf{Problema 2: Encontrar $A'$ }
+    % Aumentar espacio vertical entre líneas
+    \setlength{\algomargin}{1em}
+    \setlength{\lineskip}{1.2em} % Esto puede ayudar, pero no siempre funciona
     
-    Este problema generaliza el anterior: ahora se permite seleccionar más de un contenedor, lo cual da más flexibilidad, pero también puede hacer más complejo encontrar la mejor solución. El objetivo sigue siendo cubrir completamente las demandas de las bolsitas con la oferta de los contenedores, maximizando el beneficio total del sistema.
+    % O agregar espacio extra entre comandos
+    \newcommand{\myvspace}{\vspace{0.3em}}
     
+    % Código del algoritmo:
+    \begin{algorithm}[H]
+    \KwData{\texttt{umbral\_total} \myvspace}
+    \KwResult{Mejor solución encontrada \myvspace}
+    
+    % --- Inicialización ---
+    Inicializar $tiempo\_inicio \gets$ tiempo actual\;\myvspace
+    Inicializar $mejor\_valor \gets -\infty$\;\myvspace
+    Inicializar $mejor\_solución \gets \emptyset$\;\myvspace
+    Crear lista $ranking\_k \gets \{1, 2, \ldots, n\_pasillos\}$\;\myvspace
+    
+    % --- Exploración iterativa ---
+    \ForEach{$k$ en $ranking\_k$}{
+        $tiempo\_restante \gets umbral\_total - (tiempo\ actual - tiempo\_inicio)$\;\myvspace
+        
+        \If{$tiempo\_restante \leq 0$}{
+            \textbf{salir} del ciclo \tcp*
+        }
+        
+        $solución_k \gets$ ejecutar \texttt{Opt\_cantidadPasillosFija}$(k, tiempo\_restante)$\;\myvspace
+        
+        \If{$solucion_k$ es válida \textbf{y} $solucion_k.valor\_objetivo > mejor\_valor$}{
+            $mejor\_valor \gets solucion_k.valor\_objetivo$\;\myvspace
+            $mejor\_solucion \gets solución_k$\;\myvspace
+        }
+    }
+    
+    % --- Refinamiento con pasillos fijos ---
+    Fijar $pasillos\_fijos \gets$ pasillos seleccionados en $mejor\_solucion$\;\myvspace
+    
+    $tiempo\_restante \gets umbral\_total - (tiempo\ actual - tiempo\_inicio)$\;\myvspace
+    
+    \If{$tiempo\_restante > 0$}{
+        $solucion\_refinada \gets$ ejecutar \texttt{Opt\_PasillosFijos}$(tiempo\_restante)$\;\myvspace
+        
+        \If{$solución\_refinada$ es válida \textbf{y} $solución\_refinada.valor\_objetivo > mejor\_valor$}{
+            $mejor\_solución \gets solución\_refinada$\;\myvspace
+        }
+    }
+    
+    \Return $mejor\_solucion$\;
+    
+    \caption{Algoritmo de exploración y refinamiento para selección de pasillos}
+    \end{algorithm}
+
 \end{enumerate}
 
-\subsubsection*{El Desafío:}
 
-\begin{enumerate}
-    \item \textbf{Parte 1: Desafío(\(|A'|\))}
-    
-    En esta etapa del trabajo se aborda el problema Desafío(|A′|), donde se fija la cantidad de pasillos que pueden visitarse, sin especificar cuáles. El objetivo es modelar e implementar una formulación que permita seleccionar de forma óptima los pasillos a utilizar, respetando dicha cantidad máxima. Además, se requiere desarrollar una función que verifique si una solución es factible, es decir, si cumple con las restricciones del problema, como la cobertura adecuada de órdenes y la capacidad limitada de los pasillos.
-    
-    
-    \item \textbf{Parte 2: Desafío(\(A'\))}
-    
-    En esta etapa del trabajo se aborda el problema Desafío(|A′|), donde se fija la cantidad de pasillos que pueden visitarse, sin especificar cuáles. El objetivo es modelar e implementar una formulación que permita seleccionar de forma óptima los pasillos a utilizar, respetando dicha cantidad máxima. Además, se requiere desarrollar una función que verifique si una solución es factible, es decir, si cumple con las restricciones del problema, como la cobertura adecuada de órdenes y la capacidad limitada de los pasillos.
+\clearpage
 
-    
-    \item \textbf{Parte 3: Generación de columnas para Desafío(\(|A'|\)) }
-    
-    En esta tercera parte se aborda la resolución del problema mediante un enfoque de \textbf{generación de columnas}, lo cual permite enfrentar instancias complejas de gran tamaño. La idea consiste en representar posibles decisiones como \textit{patrones}, cada uno formado por un par $(O, a)$, donde $O$ es un subconjunto de órdenes que pueden ser satisfechas exclusivamente utilizando el pasillo $a$. Estos patrones se codifican como vectores binarios de tamaño $|O| + |\mathcal{A}|$, indicando qué órdenes y qué pasillo participan en ese patrón. El modelo no considera todas las combinaciones posibles desde el inicio, sino que parte de un conjunto reducido y va incorporando nuevas columnas (patrones) sólo cuando tienen potencial de mejorar la solución. Este enfoque requiere desarrollar funciones específicas para construir el modelo inicial (\texttt{ConstruirModelo(...)}), y para agregar nuevos patrones (\texttt{AgregarColumna(...)}), garantizando que las combinaciones elegidas cumplan con todas las restricciones del problema.
+\section{Parte 5}
+\label{sec:variante5}
 
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+        \item Descripción del problema que resuelve cada modelo.
+        \item Definición de variables utilizadas.
+        \item Modelo matemático completo.
+        \item Explicación de la función objetivo y las restricciones.
+    \end{enumerate}
 
-    \item \textbf{Parte 4: Resolución completa del problema Desafío}
-
-    En esta etapa se aborda la resolución integral del problema \textit{Desafío}, integrando las estrategias desarrolladas en las partes anteriores. Para ello, se implementa el método \texttt{Opt\_ExplorarCantidadPasillos(umbral)}, que ejecuta de forma iterativa el modelo propuesto en la sección~\ref{sec:variante1} (función \texttt{Opt\_cantidadPasillosFija}), donde se considera una cantidad fija \(k\) de pasillos a seleccionar.
-    
-    Los valores de \(k\) se determinan a partir de la función \texttt{Rankear}, que estima el potencial de cada valor en función de la capacidad acumulada de los pasillos. Por cada \(k\), se ejecuta el modelo de la sección~\ref{sec:variante1} dentro del tiempo asignado, y se conserva la mejor solución encontrada.
-    
-    Una vez finalizada la etapa exploratoria, se fijan los pasillos de la mejor solución obtenida y se aplica el modelo de la sección~\ref{sec:variante2} (función \texttt{Opt\_PasillosFijos}), que refina la selección de órdenes en base a la disponibilidad real de los pasillos previamente seleccionados.
-    
-    Este enfoque permite encontrar una solución final más eficiente, combinando exploración amplia (con múltiples valores de \(k\)) y una etapa de mejora local. Se garantiza que el tiempo total de ejecución del método \texttt{Opt\_ExplorarCantidadPasillos(umbral)} no exceda el umbral de tiempo especificado.
-
-
-    
-
-    \item \textbf{Parte 5: }
-    
-    
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
 \end{enumerate}
 
 \clearpage
+
+\section{Parte 6}
+\label{sec:variante6}
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+        \item Descripción del problema que resuelve cada modelo.
+        \item Definición de variables utilizadas.
+        \item Modelo matemático completo.
+        \item Explicación de la función objetivo y las restricciones.
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+\end{enumerate}
+
+\clearpage
+
+\section{Parte 7}
+\label{sec:variante5}
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+        \item Descripción del problema que resuelve cada modelo.
+        \item Definición de variables utilizadas.
+        \item Modelo matemático completo.
+        \item Explicación de la función objetivo y las restricciones.
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+\end{enumerate}
+
+\clearpage
+
+\section{Resultados en tablas}
+
+\clearpage
+
+%====================================================================
+\section{Conclusiones}
+%====================================================================
+
+Durante el desarrollo de este trabajo se enfrentaron diversas dificultades que proporcionaron valiosos aprendizajes sobre optimización combinatoria y su implementación práctica.
+
+\begin{enumerate}
+    \item \textbf{Comprensión del contexto del problema}
+    
+    La transición conceptual desde la descripción abstracta del problema hacia su interpretación en el contexto real de optimización de almacenes requirió un análisis cuidadoso de la semántica de variables y restricciones.
+    
+    \emph{Aprendizaje:} La importancia de contextualizar problemas de optimización en dominios específicos para una mejor comprensión y comunicación de resultados.
+
+
+    \item \textbf{Complejidad de la Generación de Columnas}
+    
+    Modificar
+    
+    \emph{Aprendizaje:} 
+
+\end{enumerate}
+
+\textbf{Principales aprendizajes obtenidos:}
+
+\begin{itemize}
+    \item \textbf{SCIP}: 
+    
+\end{itemize}
+
+
+\end{document}
+
+
+====================================================
+% codigo comentado de las demas partes del problema
+====================================================
 
 %====================================================================
 \section{Entrada en Calor}
@@ -358,7 +581,7 @@ Esta sección presenta el desarrollo matemático detallado de los modelos y sus 
     \item $S_{ia}$: Cantidad del elemento $i$ disponible en el pasillo $a$
     \item $LB$: Límite inferior de unidades a recolectar
     \item $UB$: Límite superior de unidades a recolectar
-    \item $P$: Cantidad de pasillos a seleccionar
+    \item $P$: Cantidad de pasillos a visitar
 \end{itemize}
 
 \textbf{Variables de Decisión:}
@@ -486,89 +709,3 @@ El archivo \texttt{parte3.py} implementa el algoritmo completo:
 \end{lstlisting}
 
 \clearpage
-
-\subsection{Cuarta parte:}
-\label{sec:variante4}
-
-
-\subsubsection{Formulación Matemática}
-
-En esta parte se combinan dos modelos de optimización previamente definidos:
-
-\begin{itemize}
-    \item El modelo de la \textbf{Primera parte} (sección~\ref{sec:variante1}) es utilizado por la función \\ \texttt{Opt\_cantidadPasillosFija(k, umbral)}. 
-    \item El modelo de la \textbf{Segunda parte} (sección~\ref{sec:variante2}) es utilizado por la función \\ \texttt{Opt\_PasillosFijos(umbral)}.
-\end{itemize}
-
-Ambos modelos son de programación lineal entera binaria y comparten la función objetivo de maximizar la cobertura de órdenes. Se reutilizan los mismos conjuntos, parámetros y variables definidos en las secciones anteriores.
-
-\subsubsection{Algoritmo General}
-
-El procedimiento llevado a cabo por 
-\texttt{Opt\_ExplorarCantidadPasillos(umbral)} sigue estos pasos:
-
-\begin{enumerate}
-    \item Se ejecuta la función \texttt{Rankear} para priorizar valores de \(k\) según el potencial de cobertura de cada cantidad de pasillos.
-    \item Para cada \(k\) priorizado, se ejecuta \texttt{Opt\_cantidadPasillosFija(k, tiempo)} (modelo de la sección~\ref{sec:variante1}), hasta alcanzar el límite de tiempo.
-    \item Se selecciona la mejor solución hallada y se extraen los pasillos utilizados.
-    \item Con estos pasillos fijados, se ejecuta \texttt{Opt\_PasillosFijos(tiempo restante)} (modelo de la sección~\ref{sec:variante2}) para refinar la selección de órdenes.
-\end{enumerate}
-\subsubsection{Implementación en Python}
-
-El archivo \texttt{parte4.py} contiene la implementación completa del procedimiento descrito. A continuación se muestra un esquema simplificado:
-
-\begin{lstlisting}[language=Python, caption=Algoritmo general de exploración y refinamiento]
-
-\end{lstlisting}
-
-\clearpage
-
-\subsection{Quinta parte:}
-\label{sec:variante5}
-
-
-\subsubsection{Formulación Matemática}
-
-\subsubsection{Algoritmo General}
-
-\clearpage
-
-\section{Herramientas y Tecnologías Utilizadas}
-
-\begin{itemize}
-    \item \textbf{Python}: Lenguaje de programación principal
-    \item \textbf{PuLP}: Librería de programación lineal que proporciona una interfaz de alto nivel para solvers de optimización
-    \item \textbf{SCIP}: Modificar
-
-\end{itemize}
-
-%====================================================================
-\section{Dificultades y aprendizajes}
-%====================================================================
-
-Durante el desarrollo de este trabajo se enfrentaron diversas dificultades que proporcionaron valiosos aprendizajes sobre optimización combinatoria y su implementación práctica.
-
-\begin{enumerate}
-    \item \textbf{Comprensión del contexto del problema}
-    
-    La transición conceptual desde la descripción abstracta del problema hacia su interpretación en el contexto real de optimización de almacenes requirió un análisis cuidadoso de la semántica de variables y restricciones.
-    
-    \emph{Aprendizaje:} La importancia de contextualizar problemas de optimización en dominios específicos para una mejor comprensión y comunicación de resultados.
-
-
-    \item \textbf{Complejidad de la Generación de Columnas}
-    
-    Modificar
-    
-    \emph{Aprendizaje:} 
-
-\end{enumerate}
-
-\textbf{Principales aprendizajes obtenidos:}
-
-\begin{itemize}
-    \item \textbf{SCIP}: 
-    
-\end{itemize}
-
-\end{document}
