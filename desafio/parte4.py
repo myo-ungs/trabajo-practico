@@ -20,7 +20,3 @@ print("Mejor valor objetivo:", resultado["valor_objetivo"])
 print("Órdenes seleccionadas:", resultado["ordenes_seleccionadas"])
 print("Pasillos seleccionados:", resultado["pasillos_seleccionados"])
 
-
-#corroborar cantidad de ordenes y pasillos elegidos
-print(f"{len(resultado['ordenes_seleccionadas'])} órdenes seleccionadas.")
-print(f"{len(resultado['pasillos_seleccionados'])} pasillos seleccionados.")
