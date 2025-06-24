@@ -36,7 +36,7 @@ class Columns:
         if k not in self.columnas:
             self.columnas[k] = [self._crear_columna_inicial(a) for a in range(self.A)]
 
-        x_vars = [LpVariable(f"x_{k}_{idx}", cat=LpBinary) for idx, _ in enumerate(self.columnas[k])]
+        x_vars = [LpVariable(f"x_{self.columnas[k][idx]['pasillo']}_{idx}", cat=LpBinary) for idx, _ in enumerate(self.columnas[k])]
 
         modelo += lpSum(x_vars) == k, "card_k"
 
@@ -52,11 +52,10 @@ class Columns:
                 for j in range(len(x_vars))
             ), f"cov_{i}"
 
-        beneficio = lpSum(
+        modelo += lpSum(
             x_vars[j]*sum(self.W[o][i] for o in range(self.O) for i in range(self.I) if self.columnas[k][j]['ordenes'][o])
             for j in range(len(x_vars))
         )
-        modelo += beneficio
 
         return modelo, x_vars
 
@@ -119,19 +118,29 @@ class Columns:
         modelo_resuelto = self.resolver_modelo(modelo, umbral)
         if not modelo_resuelto:
             return None
-        aisles, orders = set(), set()
+        pasillos_seleccionados, ordenes_seleccionadas = set(), set()
         for idx, x in enumerate(x_vars):
             if x.varValue and x.varValue > 1e-5:
-                aisles.add(self.columnas[k][idx]['pasillo'])
+                pasillos_seleccionados.add(self.columnas[k][idx]['pasillo'])
                 for o, val in enumerate(self.columnas[k][idx]['ordenes']):
-                    if val:
-                        orders.add(o)
-        return {"valor_objetivo": int(modelo.objective.value()), "pasillos_seleccionados": aisles, "ordenes_seleccionadas": orders}
+                    if val: ordenes_seleccionadas.add(o)
+        return {
+            "valor_objetivo": int(modelo.objective.value()),
+            "pasillos_seleccionados": pasillos_seleccionados,
+            "ordenes_seleccionadas": ordenes_seleccionadas
+        }
 
     def Opt_PasillosFijos(self, pasillos, umbral):
         k = len(pasillos)
         self.columnas[k] = [col for col in self.columnas.get(k, []) if col['pasillo'] in pasillos]
-        return self.Opt_cantidadPasillosFija(k, umbral)
+        sol = self.Opt_cantidadPasillosFija(k, umbral)
+        if sol:
+            return {
+                "valor_objetivo": sol["valor_objetivo"],
+                "pasillos_seleccionados": sol["pasillos_seleccionados"],
+                "ordenes_seleccionadas": sol["ordenes_seleccionadas"]
+            }
+        return None
 
     def Opt_ExplorarCantidadPasillos(self, umbral):
         self.columnas = {}
@@ -141,11 +150,35 @@ class Columns:
             if time.time() - tiempo_ini >= umbral:
                 break
             rem = umbral - (time.time() - tiempo_ini)
-            sol = self.Opt_cantidadPasillosFija(k, rem)
-            if sol and sol["valor_objetivo"] > best_val:
-                best_val = sol["valor_objetivo"]
-                best_sol = sol
+            lista_k = self.Rankear(t_est=rem / self.A)
+            for k in lista_k:
+                if time.time() - tiempo_ini >= umbral:
+                    break
+                rem2 = umbral - (time.time() - tiempo_ini)
+                sol = self.Opt_cantidadPasillosFija(k, rem2)
+                if sol and sol["valor_objetivo"] > best_val:
+                    best_val = sol["valor_objetivo"]
+                    best_sol = sol
         if best_sol:
-            rem = max(0.1, umbral - (time.time() - tiempo_ini))
-            return self.Opt_PasillosFijos(best_sol["pasillos_seleccionados"], rem)
+            rem3 = max(0.1, umbral - (time.time() - tiempo_ini))
+            return self.Opt_PasillosFijos(best_sol["pasillos_seleccionados"], rem3)
         return None
+
+    def Rankear(self, t_est):
+        print("[Rankear] Estimando el potencial para cada k ...")
+        tiempos_estimados = {}
+        resultados = {}
+        for k in range(1, self.A+1):
+            print(f"[Rankear] Estimando para k={k} con t={t_est:.2f}s")
+            start = time.time()
+            sol = self.Opt_cantidadPasillosFija(k, t_est)
+            end = time.time()
+            if sol is None:
+                print(f"[Rankear] No se encontró solución para k={k}")
+                tiempos_estimados[k] = float('inf')
+                resultados[k] = None
+            else:
+                tiempos_estimados[k] = end - start
+                resultados[k] = sol
+        lista_k = sorted(resultados.keys(), key=lambda x: resultados[x]["valor_objetivo"] if resultados[x] else -float('inf'), reverse=True)
+        return lista_k

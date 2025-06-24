@@ -5,18 +5,20 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
 # Cargar datos desde archivo
-archivo_input = "datos_de_entrada/input_ml.txt"
+archivo_input = "datos_de_entrada/A/instance_0001.txt"
 W, S, LB, UB = leer_input(archivo_input)
 
 # Instanciar y ejecutar
 solver = Columns(W, S, LB, UB)
 
-resultado = solver.Opt_ExplorarCantidadPasillos(60)
-
-print("\n=== RESULTADO FINAL ===")
-print("Valor objetivo:", resultado["valor_objetivo"])
-print("Pasillos seleccionados:", resultado["pasillos_seleccionados"])
-print("Órdenes seleccionadas:", resultado["ordenes_seleccionadas"])
+resultado = solver.Opt_ExplorarCantidadPasillos(160)
+if resultado:
+    print("=== RESULTADO FINAL ===")
+    print("Valor objetivo:", resultado["valor_objetivo"])
+    print("Pasillos seleccionados:", resultado["pasillos_seleccionados"])
+    print("Órdenes seleccionadas:", resultado["ordenes_seleccionadas"])
+else:
+    print("No se encontró solución con el umbral de tiempo dado.")
 
 
 # === Guardar resultados en archivo .out ===
