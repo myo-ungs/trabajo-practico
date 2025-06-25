@@ -1,6 +1,6 @@
 import time
 import random
-from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpStatusOptimal, PULP_CBC_CMD, LpBinary, LpStatus
+from pyscipopt import Model, quicksum
 
 class Columns:
     def __init__(self, W, S, LB, UB):
@@ -14,7 +14,7 @@ class Columns:
         self.columnas = {}
         self.pasillos_fijos = []
 
-    def inicializar_columnas_para_k(self, k): # reduzco las iniciales para probar
+    def inicializar_columnas_para_k(self, k):
         if k not in self.columnas:
             columnas_iniciales = []
             unidades_o = [sum(self.W[o]) for o in range(self.O)]
@@ -25,48 +25,44 @@ class Columns:
                         sel = [0] * self.O
                         sel[o] = 1
                         columnas_iniciales.append({'pasillo': a, 'ordenes': sel, 'unidades': unidades_o[o]})
-                        break  # solo una columna con esta orden, en el primer pasillo que quepa
+                        break
             self.columnas[k] = columnas_iniciales
-
-    def _crear_columna_inicial(self, a):
-        unidades_o = [sum(self.W[o]) for o in range(self.O)]
-        ordenes_ordenadas = sorted(range(self.O), key=lambda o: -unidades_o[o])
-        cap = self.S[a][:]
-        sel = [0] * self.O
-        total = 0
-        for o in ordenes_ordenadas:
-            if unidades_o[o] + total > self.UB:
-                continue
-            if all(self.W[o][i] <= cap[i] for i in range(self.I)):
-                sel[o] = 1
-                total += unidades_o[o]
-                for i in range(self.I):
-                    cap[i] -= self.W[o][i]
-            if total >= self.UB:
-                break
-        return {'pasillo': a, 'ordenes': sel, 'unidades': total}
 
     def construir_modelo(self, k):
         self.inicializar_columnas_para_k(k)
-        modelo = LpProblem(f"RMP_k_{k}", LpMaximize)
-        x_vars = [LpVariable(f"x_{self.columnas[k][idx]['pasillo']}_{idx}", cat=LpBinary) for idx in range(len(self.columnas[k]))]
+        modelo = Model(f"RMP_k_{k}")
+        modelo.setParam('display/verblevel', 0)  # silenciar logs
+        x_vars = []
+        for idx, col in enumerate(self.columnas[k]):
+            x = modelo.addVar(vtype="B", name=f"x_{col['pasillo']}_{idx}")
+            x_vars.append(x)
 
-        modelo += lpSum(x_vars) == k, "card_k"
+        modelo.addCons(quicksum(x_vars) == k, name="card_k")
+        restricciones_duales = {}  # Diccionario separado
+
         for o in range(self.O):
-            modelo += lpSum(x_vars[j]*self.columnas[k][j]['ordenes'][o] for j in range(len(x_vars))) <= 1, f"orden_{o}"
+            cons = modelo.addCons(
+                quicksum(x_vars[j]*self.columnas[k][j]['ordenes'][o] for j in range(len(x_vars))) <= 1,
+                name=f"orden_{o}"
+            )
+            restricciones_duales[o] = cons
+
         for i in range(self.I):
-            modelo += lpSum(
+            lhs = quicksum(
                 x_vars[j]*sum(self.W[o][i]*self.columnas[k][j]['ordenes'][o] for o in range(self.O))
                 for j in range(len(x_vars))
-            ) <= lpSum(
+            )
+            rhs = quicksum(
                 x_vars[j]*self.S[self.columnas[k][j]['pasillo']][i]
                 for j in range(len(x_vars))
-            ), f"cov_{i}"
-        modelo += lpSum(
-            x_vars[j]*sum(self.W[o][i] for o in range(self.O) for i in range(self.I) if self.columnas[k][j]['ordenes'][o])
-            for j in range(len(x_vars))
+            )
+            modelo.addCons(lhs <= rhs, name=f"cov_{i}")
+
+        modelo.setObjective(
+            quicksum(x_vars[j]*sum(self.W[o][i] for o in range(self.O) for i in range(self.I) if self.columnas[k][j]['ordenes'][o]) for j in range(len(x_vars))),
+            sense="maximize"
         )
-        return modelo, x_vars
+        return modelo, x_vars,restricciones_duales
 
     def agregar_columna(self, k, nueva_col):
         if k not in self.columnas:
@@ -86,17 +82,23 @@ class Columns:
         return True
 
     def resolver_modelo(self, modelo, time_limit):
-        solver = PULP_CBC_CMD(timeLimit=time_limit, msg=0)
-        resultado = modelo.solve(solver)
-        if resultado != LpStatusOptimal:
-            print(f"Resolver modelo: No se encontró solución óptima (status {LpStatus[resultado]}).")
-        return modelo if resultado == LpStatusOptimal else None
+        modelo.setParam("limits/time", time_limit)
+        modelo.optimize()
+        if modelo.getStatus() != 'optimal':
+            print(f"Resolver modelo: No se encontró solución óptima (status {modelo.getStatus()}).")
+            return None
+        return modelo
 
-    def obtener_valores_duales(self, modelo):
+    def obtener_valores_duales(self, modelo, restricciones_duales):
         duales = []
         for o in range(self.O):
-            cons = modelo.constraints.get(f"orden_{o}")
-            duales.append(cons.pi if cons else 0.0)
+            try:
+                cons = restricciones_duales.get(o)
+                tcons = modelo.getTransformedCons(cons)
+                dual = modelo.getDualsolLinear(tcons)
+            except Exception as e:
+                dual = 0.0
+            duales.append(dual)
         return duales
 
 
@@ -110,7 +112,6 @@ class Columns:
             ordenes = [0] * self.O
             total = 0
 
-            # Introducimos ruido aleatorio pequeño para romper empates y variar orden
             ruido = [random.uniform(0, 0.01) for _ in range(self.O)]
             ordenes_ordenadas = sorted(
                 range(self.O),
@@ -137,11 +138,9 @@ class Columns:
                 best_col = {'pasillo': a, 'ordenes': ordenes.copy(), 'unidades': total}
                 print(f"✔️ Columna candidata mejoradora en pasillo {a} con valor reducido {valor_reducido_total}")
 
-
         return best_col if best_val > 1e-3 else None
 
     def Opt_cantidadPasillosFija(self, k, umbral):
-        
         tiempo_ini = time.time()
         self.inicializar_columnas_para_k(k)
         print(f"Columnas iniciales para k={k}: {len(self.columnas[k])}")
@@ -150,11 +149,11 @@ class Columns:
         while time.time() - tiempo_ini < umbral:
             print(f"⌛ Iteración con {len(self.columnas[k])} columnas")
             print(f"Columnas actuales para k={k}: {len(self.columnas[k])}")
-            modelo, x_vars = self.construir_modelo(k)
+            modelo, x_vars, restricciones_duales = self.construir_modelo(k)
             modelo_resuelto = self.resolver_modelo(modelo, umbral)
             if not modelo_resuelto:
                 break
-            duales = self.obtener_valores_duales(modelo)
+            duales = self.obtener_valores_duales(modelo, restricciones_duales)
             nueva = self.buscar_columna_mejoradora(k, duales)
             if not nueva or not self.agregar_columna(k, nueva):
                 break
@@ -162,27 +161,25 @@ class Columns:
                 print("⏰ Umbral de tiempo alcanzado, saliendo del bucle")
                 break
 
-
-        modelo, x_vars = self.construir_modelo(k)
+        modelo, x_vars, restricciones_duales = self.construir_modelo(k)
         modelo_resuelto = self.resolver_modelo(modelo, umbral)
         if not modelo_resuelto:
             print("No se pudo resolver el modelo final para k =", k)
             return None
-        
-        self.columnas_finales = len(self.columnas[k])
-        self.ultima_cota_dual = modelo.objective.value()
 
+        self.columnas_finales = len(self.columnas[k])
+        self.ultima_cota_dual = modelo.getObjVal()
 
         pasillos_seleccionados, ordenes_seleccionadas = set(), set()
         for idx, x in enumerate(x_vars):
-            if x.varValue and x.varValue > 1e-5:
+            if x.getLPSol() and x.getLPSol() > 1e-5:
                 pasillos_seleccionados.add(self.columnas[k][idx]['pasillo'])
                 for o, val in enumerate(self.columnas[k][idx]['ordenes']):
                     if val:
                         ordenes_seleccionadas.add(o)
 
         return {
-            "valor_objetivo": int(modelo.objective.value()),
+            "valor_objetivo": int(self.ultima_cota_dual),
             "pasillos_seleccionados": pasillos_seleccionados,
             "ordenes_seleccionadas": ordenes_seleccionadas,
             "variables": self.columnas_iniciales,
@@ -190,40 +187,52 @@ class Columns:
             "cota_dual": self.ultima_cota_dual
         }
 
+
+    from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
+
     def Opt_PasillosFijos(self, umbral):
         if not self.pasillos_fijos:
             print("No hay pasillos fijos definidos para Opt_PasillosFijos")
             return None
 
         start = time.time()
-        modelo = LpProblem("Opt_PasillosFijos", LpMaximize)
-        x = LpVariable.dicts("x", range(self.O), cat=LpBinary)
+        model = Model("Opt_PasillosFijos")
+        model.setParam('display/verblevel', 0)  # silenciar logs
+        model.setParam('limits/nodes', 5000)  # limitar nodos
+        model.setParam("limits/time", umbral)
 
-        modelo += lpSum(self.W[o][i] * x[o] for o in range(self.O) for i in range(self.I)), "TotalRecolectado"
-        modelo += lpSum(self.W[o][i] * x[o] for o in range(self.O) for i in range(self.I)) >= self.LB
-        modelo += lpSum(self.W[o][i] * x[o] for o in range(self.O) for i in range(self.I)) <= self.UB
+        x = {}
+        for o in range(self.O):
+            x[o] = model.addVar(vtype="B", name=f"x_{o}")
+
+        model.setObjective(
+            quicksum(self.W[o][i] * x[o] for o in range(self.O) for i in range(self.I)),
+            "maximize"
+        )
+
+        total = quicksum(self.W[o][i] * x[o] for o in range(self.O) for i in range(self.I))
+        model.addCons(total >= self.LB)
+        model.addCons(total <= self.UB)
 
         for i in range(self.I):
             disponibilidad_total = sum(self.S[a][i] for a in self.pasillos_fijos)
-            modelo += lpSum(self.W[o][i] * x[o] for o in range(self.O)) <= disponibilidad_total
+            model.addCons(quicksum(self.W[o][i] * x[o] for o in range(self.O)) <= disponibilidad_total)
 
-        tiempo_restante = umbral - (time.time() - start)
-        if tiempo_restante <= 0:
-            print("Tiempo agotado antes de resolver el modelo en Opt_PasillosFijos")
-        solver = PULP_CBC_CMD(msg=0)
-        modelo.solve(solver)
+        cantidad_restricciones = model.getNConss()
+        model.optimize()
 
-        if LpStatus[modelo.status] != "Optimal":
-            print(f"Modelo no óptimo: {LpStatus[modelo.status]}")
+        if model.getStatus() != "optimal":
+            print(f"Modelo no óptimo: {model.getStatus()}")
             return None
 
-        ordenes_seleccionadas = [o for o in range(self.O) if x[o].varValue == 1]
-        valor_objetivo = int(modelo.objective.value())
+        ordenes_seleccionadas = [o for o in range(self.O) if model.getVal(x[o]) > 0.5]
+        valor_objetivo = int(model.getObjVal())
+
         return {
             "valor_objetivo": valor_objetivo,
             "ordenes_seleccionadas": ordenes_seleccionadas,
             "pasillos_seleccionados": self.pasillos_fijos,
-            "restricciones": len(modelo.constraints),
+            "restricciones": cantidad_restricciones,
             "variables": len(x),
             "variables_final": len(x),
             "cota_dual": None
@@ -233,7 +242,7 @@ class Columns:
         self.columnas = {}
         best_sol, best_val = None, -float('inf')
         tiempo_ini = time.time()
-        lista_k = self.Rankear()  # [(k1, potencial1), (k2, potencial2), ...]
+        lista_k = self.Rankear()
         total_potencial = sum(pot for _, pot in lista_k)
 
         for k, potencial in lista_k:
@@ -264,7 +273,6 @@ class Columns:
             self.pasillos_fijos = best_sol["pasillos_seleccionados"]
             resultado_final = self.Opt_PasillosFijos(tiempo_final)
 
-            # ⚠️ AGREGADO: controlar si resultado_final es None
             if resultado_final is None:
                 print("⚠️ Opt_PasillosFijos no devolvió una solución válida.")
                 return {
@@ -274,7 +282,7 @@ class Columns:
                     "variables": best_sol.get("variables", 0),
                     "variables_final": best_sol.get("variables_final", 0),
                     "cota_dual": best_sol.get("cota_dual", 0),
-                    "instancia": self.nombre_input if hasattr(self, "nombre_input") else ""
+                    "instancia": getattr(self, "nombre_input", "")
                 }
 
             resultado_final["variables"] = best_sol.get("variables", None)
@@ -283,7 +291,6 @@ class Columns:
 
             return resultado_final
 
-        # Si best_sol fue None (nunca se encontró una solución aceptable)
         print("⚠️ No se encontró ninguna solución válida para ningún valor de k")
         return {
             "valor_objetivo": 0,
@@ -292,7 +299,8 @@ class Columns:
             "variables": 0,
             "variables_final": 0,
             "cota_dual": 0,
-            "instancia": self.nombre_input if hasattr(self, "nombre_input") else ""
+            "restricciones": 0,
+            "instancia": getattr(self, "nombre_input", "")
         }
 
 

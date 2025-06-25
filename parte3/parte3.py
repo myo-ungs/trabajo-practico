@@ -1,4 +1,4 @@
-import pulp
+from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
 from itertools import combinations
 import os
 import sys
@@ -45,65 +45,64 @@ for a in range(n_pasillos):
         if cuenta_patrones >= max_patrones_por_pasillo:
             break
 
-
 print(f"Total de patrones factibles generados: {len(columnas_validas)}")
 
 # Construcción del modelo
 def ConstruirModelo(columnas_validas, n_ordenes, n_pasillos, max_pasillos):
-    modelo = pulp.LpProblem("Modelo_Generacion_Columnas", pulp.LpMaximize)
-    z = pulp.LpVariable.dicts("z", range(len(columnas_validas)), cat="Binary")
-    y = pulp.LpVariable.dicts("y", range(n_pasillos), cat="Binary")
+    modelo = Model("Modelo_Generacion_Columnas")
+    modelo.setParam('display/verblevel', 0)
+    modelo.setParam('limits/time', 300)
 
-    modelo += pulp.lpSum(
-        sum(col[0][o] for o in range(n_ordenes)) * z[i]
-        for i, col in enumerate(columnas_validas)
+    # Variables
+    z = {}
+    for i in range(len(columnas_validas)):
+        z[i] = modelo.addVar(vtype="B", name=f"z_{i}")
+    y = {}
+    for a in range(n_pasillos):
+        y[a] = modelo.addVar(vtype="B", name=f"y_{a}")
+
+    # modelo.update() ← ELIMINAR ESTA LÍNEA
+
+    # Función objetivo
+    obj_expr = quicksum(
+        sum(columnas_validas[i][0][o] for o in range(n_ordenes)) * z[i]
+        for i in range(len(columnas_validas))
     )
+    modelo.setObjective(obj_expr, "maximize")
 
+    # Restricciones
     for o in range(n_ordenes):
-        modelo += (
-            pulp.lpSum(columnas_validas[i][0][o] * z[i] for i in range(len(columnas_validas))) <= 1,
-            f"Orden_{o}_una_vez"
+        modelo.addCons(
+            quicksum(columnas_validas[i][0][o] * z[i] for i in range(len(columnas_validas))) <= 1,
+            name=f"Orden_{o}_una_vez"
         )
 
     for i, (_, _, a) in enumerate(columnas_validas):
-        modelo += z[i] <= y[a]
+        modelo.addCons(z[i] <= y[a], name=f"Vinculacion_z{i}_y{a}")
 
-    modelo += pulp.lpSum(y[a] for a in range(n_pasillos)) == max_pasillos
+    modelo.addCons(quicksum(y[a] for a in range(n_pasillos)) == max_pasillos, name="MaxPasillos")
+
+    # modelo.update() ← ELIMINAR ESTA LÍNEA
 
     return modelo, z, y
 
 modelo, z, y = ConstruirModelo(columnas_validas, n_ordenes, n_pasillos, max_pasillos)
 
-# AgregarColumna
-def AgregarColumna(modelo, z, y, columnas_validas, nueva_columna):
-    i = len(columnas_validas)
-    columnas_validas.append(nueva_columna)
-    vector, ordenes, pasillo = nueva_columna
-
-    z[i] = pulp.LpVariable(f"z_{i}", cat="Binary")
-
-    contribucion_objetivo = sum(vector[o] for o in range(n_ordenes)) * z[i]
-    modelo.setObjective(modelo.objective + contribucion_objetivo)
-
-    for o in range(n_ordenes):
-        if f"Orden_{o}_una_vez" in modelo.constraints:
-            modelo.constraints[f"Orden_{o}_una_vez"] += vector[o] * z[i]
-
-    modelo += z[i] <= y[pasillo]
-
 # Resolver modelo inicial
-solver = pulp.SCIP()
-modelo.solve(solver)
+modelo.optimize()
 
-# Resultados iniciales
-print("Estado inicial:", pulp.LpStatus[modelo.status])
-print("Órdenes cubiertas:", pulp.value(modelo.objective))
-for i in range(len(columnas_validas)):
-    if z[i].varValue == 1:
-        print(f" - Pasillo {columnas_validas[i][2]}, Órdenes: {columnas_validas[i][1]}")
+status = modelo.getStatus()
+print("Estado inicial:", status)
+if status == "optimal" or status == "optimal_inaccurate":
+    print("Órdenes cubiertas:", modelo.getObjVal())
+    for i in range(len(columnas_validas)):
+        if modelo.getVal(z[i]) > 0.5:
+            print(f" - Pasillo {columnas_validas[i][2]}, Órdenes: {columnas_validas[i][1]}")
+else:
+    print("No se encontró solución óptima.")
 
 # ====================
-# Probar AgregarColumna
+# Intentar agregar una nueva columna factible
 # ====================
 
 print("\nIntentando agregar una columna adicional factible...")
@@ -121,18 +120,22 @@ for o in range(n_ordenes):
         break
 
 if nueva_columna:
-    AgregarColumna(modelo, z, y, columnas_validas, nueva_columna)
-    print("Columna agregada. Reoptimizando.")
-    modelo.solve(solver)
+    print("Columna agregada. Reconstruyendo modelo y reoptimizando.")
+    columnas_validas.append(nueva_columna)
+    modelo, z, y = ConstruirModelo(columnas_validas, n_ordenes, n_pasillos, max_pasillos)
+    modelo.optimize()
 
-    print("Nuevo estado:", pulp.LpStatus[modelo.status])
-    print("Nueva solución con columna agregada:")
-    for i in range(len(columnas_validas)):
-        if z[i].varValue == 1:
-            print(f" - Pasillo {columnas_validas[i][2]}, Órdenes: {columnas_validas[i][1]}")
+    status = modelo.getStatus()
+    print("Nuevo estado:", status)
+    if status == "optimal" or status == "optimal_inaccurate":
+        print("Nueva solución con columna agregada:")
+        for i in range(len(columnas_validas)):
+            if modelo.getVal(z[i]) > 0.5:
+                print(f" - Pasillo {columnas_validas[i][2]}, Órdenes: {columnas_validas[i][1]}")
+    else:
+        print("No se encontró solución óptima tras agregar columna.")
 else:
     print("No se encontró ninguna columna factible para agregar.")
-
 
 # === Guardar resultados en archivo .out ===
 
@@ -147,12 +150,12 @@ output_path = os.path.join(output_dir, f"{nombre_instancia}.out")
 
 # Guardar resultados
 with open(output_path, "w") as f:
-    f.write(f"{pulp.LpStatus[modelo.status]}\n")
-    f.write(f"{int(pulp.value(modelo.objective))}\n")
+    f.write(f"{status}\n")
+    f.write(f"{int(modelo.getObjVal())}\n")
     
     ordenes_totales = set()
     for i in range(len(columnas_validas)):
-        if z[i].varValue == 1:
+        if modelo.getVal(z[i]) > 0.5:
             ordenes_totales.update(columnas_validas[i][1])
     
     ordenes_ordenadas = sorted(ordenes_totales)

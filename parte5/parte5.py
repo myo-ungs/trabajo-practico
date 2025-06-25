@@ -5,13 +5,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
 # Cargar datos desde archivo
-archivo_input = "datos_de_entrada/A/instance_0004.txt"
+archivo_input = "datos_de_entrada/A/instance_0001.txt"
 W, S, LB, UB = leer_input(archivo_input)
 
 # Instanciar y ejecutar
 solver = Columns(W, S, LB, UB)
 
-resultado = solver.Opt_ExplorarCantidadPasillos(160)
+resultado = solver.Opt_ExplorarCantidadPasillos(16000)
 if resultado:
     print("=== RESULTADO FINAL ===")
     print("Valor objetivo:", resultado["valor_objetivo"])

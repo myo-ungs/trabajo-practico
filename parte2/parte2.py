@@ -1,5 +1,4 @@
-import pulp 
-from pulp import LpMaximize, LpProblem, LpVariable, LpStatus, lpSum, LpBinary
+from pyscipopt import Model, quicksum
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -7,43 +6,55 @@ from cargar_input import leer_input
 
 # Leer datos desde archivo
 archivo_input = "datos_de_entrada/A/instance_0001.txt"
+
+# Leer datos desde archivo
 W, S, LB, UB = leer_input(archivo_input)
 
-# Seleccion de pasillos
-pasillos = [1,3]  # ejemplo
+pasillos = [1, 3]  # pasillos seleccionados (ejemplo)
 
-# Cantidades
 n_ordenes = len(W)
 n_elementos = len(W[0])
 
-# Modelo 
-modelo = LpProblem("Desafio_A2", LpMaximize)
+# Crear modelo
+modelo = Model("Desafio_A2")
 
-# Variables
-x = LpVariable.dicts("x", range(n_ordenes), cat="Binary") 
+# Variables binarias para órdenes
+x = {}
+for o in range(n_ordenes):
+    x[o] = modelo.addVar(vtype="B", name=f"x_{o}")
 
-# Función objetivo
-modelo += lpSum(W[o][i] * x[o] for o in range(n_ordenes) for i in range(n_elementos)), "TotalRecolectado"
+# Función objetivo: maximizar total recolectado
+total_recolectado = quicksum(W[o][i] * x[o] for o in range(n_ordenes) for i in range(n_elementos))
+modelo.setObjective(total_recolectado, "maximize")
 
-# Restricción 1: el total de unidades debe ser al menos LB
-modelo += lpSum(W[o][i] * x[o] for o in range(n_ordenes) for i in range(n_elementos)) >= LB
+# Restricción 1: total unidades >= LB
+modelo.addCons(total_recolectado >= LB, "LB")
 
-# Restricción 2: el total de unidades sea como maximo UB
-modelo += lpSum(W[o][i] * x[o] for o in range(n_ordenes) for i in range(n_elementos)) <= UB
+# Restricción 2: total unidades <= UB
+modelo.addCons(total_recolectado <= UB, "UB")
 
-# Restricción 3: disponibilidad por pasillo, por cada elemento i la cantidad total debe ser menor o igual a la suma de lo disponible en los pasillos seleccionados
+# Restricción 3: disponibilidad por elemento solo en pasillos seleccionados
 for i in range(n_elementos):
     disponibilidad_total = sum(S[a][i] for a in pasillos)
-    modelo += lpSum(W[o][i] * x[o] for o in range(n_ordenes)) <= disponibilidad_total
+    modelo.addCons(
+        quicksum(W[o][i] * x[o] for o in range(n_ordenes)) <= disponibilidad_total,
+        name=f"disponibilidad_elem_{i}"
+    )
 
-# Resolver modelo
-modelo.solve()
+# Optimizar modelo
+modelo.optimize()
 
+# Estado de la solución
+status = modelo.getStatus()
+print("Estado de solución:", status)
 
-# Resultados
-print("Estado de solución:", LpStatus[modelo.status])
-print("Órdenes seleccionadas (O'):", [o for o in range(n_ordenes) if x[o].varValue == 1])
-print("Unidades recolectadas:", pulp.value(modelo.objective))
+if status == "optimal" or status == "optimal_inaccurate":
+    x_sol = [int(modelo.getVal(x[o])) for o in range(n_ordenes)]
+
+    print("Órdenes seleccionadas (O'):", [o for o in range(n_ordenes) if x_sol[o] == 1])
+    print("Unidades recolectadas:", modelo.getObjVal())
+else:
+    print("No se encontró solución óptima.")
 
 
 # === Guardar resultados en archivo .out ===
@@ -59,7 +70,11 @@ os.makedirs(output_dir, exist_ok=True)
 output_path = os.path.join(output_dir, f"{nombre_instancia}.out")
 
 with open(output_path, "w") as f:
-    f.write(f"{LpStatus[modelo.status]}\n")
-    f.write(f"{int(pulp.value(modelo.objective))}\n")
-    ordenes_seleccionadas = [str(o) for o in range(n_ordenes) if x[o].varValue == 1]
-    f.write(" ".join(ordenes_seleccionadas) + "\n")
+    f.write(f"{status}\n")
+    if status == "optimal":
+        f.write(f"{int(modelo.getObjVal())}\n")
+        ordenes_seleccionadas = [str(o) for o in range(n_ordenes) if modelo.getVal(x[o]) > 0.5]
+        f.write(" ".join(ordenes_seleccionadas) + "\n")
+    else:
+        f.write("No se encontró solución óptima.")
+    
