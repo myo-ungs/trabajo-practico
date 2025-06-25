@@ -23,6 +23,11 @@
 }
 \usepackage{tocloft}
 
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{tabularx} 
+
 \renewcommand{\cfttoctitlefont}{\centering\Huge\bfseries}
 \renewcommand{\cftsecfont}{\bfseries}
 \renewcommand{\cftsecpagefont}{\bfseries}
@@ -389,10 +394,59 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
 \begin{enumerate}[label=(\alph*), leftmargin=2em]
     \item \textbf{Modelos matemáticos utilizados:}
     \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+    
         \item Descripción del problema que resuelve cada modelo.
+        
+            En esta etapa se resuelve el problema \textit{Desafío} mediante un enfoque de generación de columnas (o patrones). Cada columna representa un conjunto factible de órdenes que pueden ser atendidas por un único pasillo. Estas columnas se generan dinámicamente durante el proceso de optimización.
+
+            Se implementa una clase \texttt{Columns} que contiene tres métodos principales:
+            \begin{itemize}
+                \item \texttt{Opt\_cantidadPasilloFija(k, umbral)}: resuelve el problema para una cantidad fija \(k\) de pasillos seleccionados, dentro de un límite de tiempo dado.
+                \item \texttt{Opt\_PasillosFijos(umbral)}: dado un conjunto fijo de pasillos, encuentra la mejor selección de órdenes compatible con ellos.
+                \item \texttt{Opt\_ExplorarCantidadPasillos(umbral)}: explora distintos valores de \(k\), ejecutando el modelo con generación de columnas y eligiendo la mejor solución dentro del tiempo total disponible.
+            \end{itemize}
+
+            En cada iteración de \texttt{Opt\_ExplorarCantidadPasillos}, se ejecuta \texttt{Opt\_cantidadPasilloFija} para un valor \(k\), basado en una estrategia de ranking que estima el potencial de cada valor. Se agregan nuevas columnas basadas en los valores duales hasta que no se pueden generar más columnas o se agota el tiempo.
+
+            Finalmente, se fija el mejor conjunto de pasillos encontrados y se ejecuta \texttt{Opt\_PasillosFijos} para refinar la solución.
+
         \item Definición de variables utilizadas.
+
+            \begin{itemize}
+                \item \(x_j \in \{0,1\}\): variable binaria que indica si la columna (patrón) \(j\) es seleccionada.
+                \item \(a_j\): pasillo asociado a la columna \(j\).
+                \item \(o_{jo} \in \{0,1\}\): parámetro que vale 1 si la orden \(o\) está incluida en la columna \(j\), y 0 en caso contrario.
+                \item \(W_{o,i}\): cantidad del elemento \(i\) en la orden \(o\).
+                \item \(k\): cantidad fija de pasillos seleccionados (\(|A'|\)).
+            \end{itemize}
+
         \item Modelo matemático completo.
+
+            Para un conjunto de columnas \(C_k\) generado para una cantidad fija de pasillos \(k\):
+
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{j \in C_k} x_j \cdot \sum_{o \in O} \left( \sum_{i \in I} W_{o,i}  \cdot o_{jo}\right) \\
+            \text{s.t.} \quad
+            & \sum_{j \in C_k} x_j = k & \text{(Selección de exactamente $k$ pasillos)} \\
+            & \sum_{j \in C_k} x_j \cdot o_{jo} \leq 1 & \forall o \in O \quad \text{(Cada orden a lo sumo una vez)} \\
+            & x_j \in \{0,1\} & \forall j \in C_k
+            \end{aligned}
+            \]
+
         \item Explicación de la función objetivo y las restricciones.
+
+            \begin{itemize}
+                \item \textbf{Función objetivo:} maximizar la cantidad total de elementos entregados por las órdenes incluidas en las columnas seleccionadas. Cada columna contribuye con el total de elementos de las órdenes que contiene.
+                
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item Se seleccionan exactamente \(k\) columnas, es decir, \(k\) pasillos.
+                    \item Cada orden puede ser cubierta a lo sumo por una columna, evitando duplicidad.
+                    \item Las variables \(x_j\) son binarias, reflejando decisiones de inclusión o exclusión de columnas (patrones).
+                \end{itemize}
+            \end{itemize}
+
     \end{enumerate}
 
     \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
@@ -406,10 +460,67 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
 \begin{enumerate}[label=(\alph*), leftmargin=2em]
     \item \textbf{Modelos matemáticos utilizados:}
     \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+    
         \item Descripción del problema que resuelve cada modelo.
+        
+            En esta etapa se busca mejorar la performance del modelo desarrollado en la Parte 5, manteniendo su estructura de generación de columnas, pero introduciendo variantes que optimizan distintas etapas del proceso. 
+
+            Las siguientes alternativas fueron evaluadas por separado:
+
+            \begin{enumerate}[label=\arabic*.]
+                \item \textbf{Columnas iniciales eficientes:} ????????????????????
+                \item \textbf{Rankear mejorado:} ??????????????
+                \item \textbf{Eliminar columnas inactivas:} ?????????????????????????
+            \end{enumerate}
+
+            Cada una de estas variantes se evalúa por separado frente al modelo base de la Parte 5, sobre las primeras 4 instancias del conjunto de datos. Se implementa un script que automatiza la ejecución de cada modelo con los mismos inputs y condiciones, y que genera un archivo CSV con métricas comparativas.
+
         \item Definición de variables utilizadas.
+
+            Las variables del modelo son las mismas que en la Parte 5:
+
+            \begin{itemize}
+                \item \(x_j \in \{0,1\}\): variable binaria que indica si la columna (patrón) \(j\) es seleccionada.
+                \item \(a_j\): pasillo asociado a la columna \(j\).
+                \item \(o_{jo} \in \{0,1\}\): parámetro que vale 1 si la orden \(o\) está incluida en la columna \(j\), 0 en caso contrario.
+                \item \(W_{o,i}\): cantidad del elemento \(i\) en la orden \(o\).
+                \item \(k\): cantidad de pasillos a seleccionar en la iteración actual.
+            \end{itemize}
+
         \item Modelo matemático completo.
+
+            Se mantiene el mismo modelo matemático base de la Parte 5:
+
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{j \in C_k} x_j \cdot \sum_{o \in O} \left( \sum_{i \in I} W_{o,i}  \cdot o_{jo}\right) \\
+            \text{s.t.} \quad
+            & \sum_{j \in C_k} x_j = k & \text{(Selección de exactamente $k$ pasillos)} \\
+            & \sum_{j \in C_k} x_j \cdot o_{jo} \leq 1 & \forall o \in O \quad \text{(Cada orden a lo sumo una vez)} \\
+            & x_j \in \{0,1\} & \forall j \in C_k
+            \end{aligned}
+            \]
+
+            Lo que cambia es la lógica de selección y evolución del conjunto \(C_k\) de columnas:
+
+            \begin{itemize}
+                \item En la variante (1), \(C_k\) se inicializa con las columnas optimizadas.
+                \item En la variante (2), los valores de \(k\) que se exploran se priorizan con una nueva función \texttt{Rankear}.
+                \item En la variante (3), en cada iteración se eliminan del modelo las columnas no utilizadas en las últimas iteraciones, manteniendo actualizado el conjunto \(C_k\).
+            \end{itemize}
+
         \item Explicación de la función objetivo y las restricciones.
+
+            \begin{itemize}
+                \item \textbf{Función objetivo:} se busca maximizar la cantidad total de elementos entregados, considerando las órdenes incluidas en las columnas seleccionadas.
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item Se seleccionan exactamente \(k\) columnas/pasillos.
+                    \item Cada orden puede ser cubierta por una única columna.
+                    \item Las variables \(x_j\) indican si se incluye la columna/patrón en la solución final.
+                \end{itemize}
+            \end{itemize}
+
     \end{enumerate}
 
     \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
@@ -435,14 +546,100 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
 \clearpage
 
 \section{Resultados en tablas}
+En esta sección mostraremos los resultados obtenidos.
+
+\subsection{Parte 6}
+En la siguiente tabla se presentan los resultados obtenidos al evaluar distintas estrategias para mejorar la performance del modelo de la Sección 5. Se considera, por separado, la incorporación de cada una de las siguientes variantes: selección más eficiente de columnas iniciales, mejora de la función \texttt{Rankear}, y eliminación de columnas no utilizadas en las últimas iteraciones. Las pruebas se realizaron sobre las primeras cuatro instancias del conjunto de datos \texttt{A}.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Instancia} & \textbf{Métrica} & \textbf{Sección 5} & \textbf{Col. iniciales} & \textbf{Rankear} & \textbf{Elim col.} \\
+\midrule
+\multirow{5}{*}{A-0001} 
+  & Restricciones         & 157 & 157 & 157 & 157 \\
+  & \# var iniciales      & 17  & 17  & 17  & 17  \\
+  & \# var últ. maestro   & 18  & 17  & 18  & 17  \\
+  & Cota dual             & 51.0& 51.0& 51.0& 51  \\
+  & Mejor objetivo        & 68  & 68  & 68  & 68  \\
+\midrule
+\multirow{5}{*}{A-0002} 
+  & Restricciones         & 9   & 9   & 9   & 9   \\
+  & \# var iniciales      & 6   & 6   & 6   & 6   \\
+  & \# var últ. maestro   & 6   & 6   & 6   & 6   \\
+  & Cota dual             & 8.0 & 8.0 & 8.0 & 8   \\
+  & Mejor objetivo        & 2   & 2   & 2   & 2   \\
+\midrule
+\multirow{5}{*}{A-0003} 
+  & Restricciones         & 248 & 248 & 248 & 248 \\
+  & \# var iniciales      & 14  & 14  & 14  & 14  \\
+  & \# var últ. maestro   & 15  & 15  & 15  & 14  \\
+  & Cota dual             & 50.0& 50.0& 50.0& 50  \\
+  & Mejor objetivo        & 68  & 68  & 68  & 75  \\
+\midrule
+\multirow{5}{*}{A-0004} 
+  & Restricciones         & 0   & 0   & 0   & 0   \\
+  & \# var iniciales      & 0   & 0   & 0   & 0   \\
+  & \# var últ. maestro   & 0   & 0   & 0   & 0   \\
+  & Cota dual             & 0   & 0   & 0   & 0   \\
+  & Mejor objetivo        & 0   & 0   & 0   & 0   \\
+\bottomrule
+\end{tabular}
+\caption{Comparación de métricas por instancia y estrategia}
+\end{table}
 
 \clearpage
 
+\subsection{Parte 7}
+La siguiente tabla presenta una comparación entre el mejor modelo obtenido en la Parte 6 y el modelo propuesto en la Parte 7, utilizando las primeras cuatro instancias del conjunto de datos \texttt{A}.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{lXcc}
+\toprule
+\textbf{Instancia} & \textbf{Métrica} & \textbf{Parte 6} & \textbf{Parte 7} \\
+\midrule
+\multirow{5}{*}{instance\_0001} 
+  & Restricciones               & 0   & 0   \\
+  & \# variables iniciales      & 0   & 0   \\
+  & \# variables últ. maestro   & 0   & 0   \\
+  & Cota dual                   & 0   & 0   \\
+  & Mejor objetivo              & 0   & 0   \\
+\midrule
+\multirow{5}{*}{instance\_0002} 
+  & Restricciones               & 0   & 0   \\
+  & \# variables iniciales      & 0   & 0   \\
+  & \# variables últ. maestro   & 0   & 0   \\
+  & Cota dual                   & 0   & 0   \\
+  & Mejor objetivo              & 0   & 0   \\
+\midrule
+\multirow{5}{*}{instance\_0003} 
+  & Restricciones               & 0   & 0   \\
+  & \# variables iniciales      & 0   & 0   \\
+  & \# variables últ. maestro   & 0   & 0   \\
+  & Cota dual                   & 0   & 0   \\
+  & Mejor objetivo              & 0   & 0   \\
+\midrule
+\multirow{5}{*}{instance\_0004} 
+  & Restricciones               & 0   & 0   \\
+  & \# variables iniciales      & 0   & 0   \\
+  & \# variables últ. maestro   & 0   & 0   \\
+  & Cota dual                   & 0   & 0   \\
+  & Mejor objetivo              & 0   & 0   \\
+\bottomrule
+\end{tabularx}
+\caption{Comparación entre el mejor modelo de la Parte 6 y el de la Parte 7 para las instancias del dataset A}
+\end{table}
+
+\clearpage
 %====================================================================
 \section{Conclusiones}
 %====================================================================
 
-Durante el desarrollo de este trabajo se enfrentaron diversas dificultades que proporcionaron valiosos aprendizajes sobre optimización combinatoria y su implementación práctica.
+\textbf{Dificultades:}
 
 \begin{enumerate}
     \item \textbf{Comprensión del contexto del problema}
@@ -452,11 +649,11 @@ Durante el desarrollo de este trabajo se enfrentaron diversas dificultades que p
     \emph{Aprendizaje:} La importancia de contextualizar problemas de optimización en dominios específicos para una mejor comprensión y comunicación de resultados.
 
 
-    \item \textbf{Complejidad de la Generación de Columnas}
+    \item \textbf{Generación de Nuevas Columnas}
     
-    Modificar
+    En la inicialización del modelo, se incluían todas las columnas posibles, lo que provocaba que las columnas candidatas generadas por la función \texttt{buscar\_columna\_mejoradora()} no agregue ninguna columna por el hecho de que todas opciones estaban incluidas en el conjunto inicial, entonces al llamar a \texttt{agregar\_columna()} las columnas estaban siendo detectadas como duplicadas y por lo tanto no agregadas al modelo. Entonces el modelo ya estaba saturado, consume más memoria y tiempo, ya que el método de generación de columnas no hacía nada. 
     
-    \emph{Aprendizaje:} 
+    \emph{Solución:} Se modificó la estrategia de inicialización de columnas, reduciendo el conjunto inicial a un subconjunto más pequeño y representativo: columnas con una sola orden cada una. Esta nueva configuración constituye un punto de partida factible, pero no saturado de columnas repetidas, lo que permite que el método agregue nuevas columnas y mejore iterativamente la solución.
 
 \end{enumerate}
 
