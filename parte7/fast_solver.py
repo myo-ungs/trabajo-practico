@@ -18,6 +18,7 @@ class FastSolver:
     def heuristica_greedy(self, max_pasillos=None):
         """
         Heurística greedy rápida: selecciona pasillos y órdenes de mayor beneficio
+        con verificación estricta de capacidades
         """
         if max_pasillos is None:
             max_pasillos = min(self.n_pasillos, 30)  # Limitar pasillos
@@ -27,41 +28,42 @@ class FastSolver:
         capacidades.sort(key=lambda x: x[1], reverse=True)
         pasillos_seleccionados = [p[0] for p in capacidades[:max_pasillos]]
         
-        # 2. Calcular capacidad total disponible
-        capacidad_total = defaultdict(int)
+        # 2. Calcular capacidad total disponible de forma precisa
+        capacidad_total = [0] * self.n_items
         for p in pasillos_seleccionados:
-            for i, cap in enumerate(self.S[p]):
-                capacidad_total[i] += cap
+            for i in range(min(len(self.S[p]), self.n_items)):
+                capacidad_total[i] += self.S[p][i]
         
-        # 3. Seleccionar órdenes greedy
+        # 3. Seleccionar órdenes greedy con verificación estricta
         ordenes_seleccionadas = []
-        demanda_usada = defaultdict(int)
+        demanda_usada = [0] * self.n_items
         
-        # Rankear órdenes por beneficio/demanda
-        ratios = []
+        # Rankear órdenes por beneficio total (más simple y efectivo)
+        beneficios = []
         for o in range(self.n_ordenes):
             beneficio = sum(self.W[o])
-            demanda = sum(self.W[o])
-            ratio = beneficio / max(demanda, 1)
-            ratios.append((o, ratio, beneficio))
+            beneficios.append((o, beneficio))
         
-        ratios.sort(key=lambda x: x[1], reverse=True)
+        beneficios.sort(key=lambda x: x[1], reverse=True)
         
-        # Seleccionar órdenes que quepan
+        # Seleccionar órdenes que quepan con verificación estricta
         valor_objetivo = 0
-        for orden_idx, ratio, beneficio in ratios:
-            # Verificar si la orden cabe
+        for orden_idx, beneficio in beneficios:
+            # Verificar si la orden cabe (considerando demanda de ítems individuales)
             puede_agregar = True
-            for i, demanda in enumerate(self.W[orden_idx]):
-                if demanda_usada[i] + demanda > capacidad_total[i]:
+            for i in range(min(len(self.W[orden_idx]), self.n_items)):
+                demanda = self.W[orden_idx][i]
+                if demanda > 0 and demanda_usada[i] + demanda > capacidad_total[i]:
                     puede_agregar = False
                     break
             
             if puede_agregar and valor_objetivo + beneficio <= self.UB:
                 ordenes_seleccionadas.append(orden_idx)
                 valor_objetivo += beneficio
-                for i, demanda in enumerate(self.W[orden_idx]):
-                    demanda_usada[i] += demanda
+                for i in range(min(len(self.W[orden_idx]), self.n_items)):
+                    demanda = self.W[orden_idx][i]
+                    if demanda > 0:
+                        demanda_usada[i] += demanda
         
         return {
             "valor_objetivo": valor_objetivo,
@@ -149,3 +151,39 @@ class FastSolver:
             solucion_final = solucion_inicial
         
         return solucion_final
+    
+    def verificar_factibilidad(self, solucion):
+        """
+        Verifica si una solución es factible
+        """
+        pasillos_sel = solucion["pasillos_seleccionados"]
+        ordenes_sel = solucion["ordenes_seleccionadas"]
+        
+        # Calcular capacidad total disponible
+        capacidad_total = [0] * self.n_items
+        for p in pasillos_sel:
+            for i in range(len(self.S[p])):
+                capacidad_total[i] += self.S[p][i]
+        
+        # Calcular demanda total
+        demanda_total = [0] * self.n_items
+        valor_real = 0
+        for o in ordenes_sel:
+            valor_real += sum(self.W[o])
+            for i in range(len(self.W[o])):
+                demanda_total[i] += self.W[o][i]
+        
+        # Verificar restricciones
+        violaciones = 0
+        for i in range(self.n_items):
+            if demanda_total[i] > capacidad_total[i]:
+                violaciones += 1
+        
+        factible = violaciones == 0 and self.LB <= valor_real <= self.UB
+        
+        return {
+            "factible": factible,
+            "violaciones": violaciones,
+            "valor_real": valor_real,
+            "valor_reportado": solucion["valor_objetivo"]
+        }
