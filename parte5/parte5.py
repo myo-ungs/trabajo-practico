@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
 # Cargar datos desde archivo
-archivo_input = "datos_de_entrada/A/instance_0004.txt"
+archivo_input = "datos_de_entrada/A/instance_0001.txt"
 W, S, LB, UB = leer_input(archivo_input)
 
 # Instanciar y ejecutar
@@ -17,6 +17,7 @@ if resultado:
     print("Valor objetivo:", resultado["valor_objetivo"])
     print("Pasillos seleccionados:", resultado["pasillos_seleccionados"])
     print("Órdenes seleccionadas:", resultado["ordenes_seleccionadas"])
+    print(resultado)
 else:
     print("No se encontró solución con el umbral de tiempo dado.")
 

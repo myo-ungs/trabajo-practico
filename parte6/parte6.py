@@ -105,14 +105,13 @@ def main():
 
             metrica = {
                 'instancia': nombre_archivo,
-                'mejor_objetivo': resultado.get('valor_objetivo', ''),
-                'pasillos_seleccionados': resultado.get('pasillos_seleccionados', ''),
-                'ordenes_seleccionadas': resultado.get('ordenes_seleccionadas', ''),
-                'cota_dual': resultado.get('cota_dual', ''),
                 'restricciones': resultado.get('restricciones', 0),
                 'variables': resultado.get('variables', 0),
                 'variables_final': resultado.get('variables_final', 0),
+                'cota_dual': resultado.get('cota_dual', 0),
+                'mejor_objetivo': resultado.get('valor_objetivo', 0),
             }
+
 
 
             if nombre_archivo not in metrica_dict:
