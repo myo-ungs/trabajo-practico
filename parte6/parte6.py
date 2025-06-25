@@ -9,37 +9,7 @@ import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
-# ====================
-# Utilidades
-# ====================
-def ejecutar_modelo(model_path, input_path, output_path, threshold):
-    """
-    Ejecuta un modelo Python (script) para cada archivo de input, guarda el output y retorna métricas.
-    """
-    # Cargar el módulo dinámicamente
-    spec = importlib.util.spec_from_file_location("modelo_mod", model_path)
-    modelo_mod = importlib.util.module_from_spec(spec)
-    sys.modules["modelo_mod"] = modelo_mod
-    spec.loader.exec_module(modelo_mod)
-
-    metricas = []
-    archivos_input = [f for f in os.listdir(input_path) if f.endswith('.txt')]
-    for archivo in archivos_input:
-        entrada = os.path.join(input_path, archivo)
-        salida = os.path.join(output_path, archivo.replace('.txt', '.out'))
-        start = time.time()
-        # Ejecutar el modelo: se espera que tenga una función main(input_file, output_file, threshold)
-        resultado = modelo_mod.main(entrada, salida, threshold)
-        tiempo = time.time() - start
-        # resultado debe ser un dict con las métricas requeridas
-        resultado['tiempo'] = tiempo
-        resultado['instancia'] = archivo
-        metricas.append(resultado)
-    return metricas
-
-
 def leer_config(cfg_path):
-    """Lee el archivo de configuración y retorna los paths y parámetros."""
     config = {}
     with open(cfg_path, 'r') as f:
         for line in f:
@@ -50,11 +20,8 @@ def leer_config(cfg_path):
 
 
 def escribir_csv(metrica_dict, csv_path, modelos):
-    # Escribe el archivo CSV de resultados comparativos en formato vertical por instancia
     with open(csv_path, 'w', newline='', encoding='cp1252') as f:
         writer = csv.writer(f, delimiter=';')
-        # Header: Modelo_Instancia, Métrica, Valor
-        ancho = 10
         writer.writerow(["Instancia", "Métrica", "Sección 5", "Col. iniciales", "Rankear", "Eliminar col."])
         metricas = [
             ("Restricciones", 'restricciones'),
@@ -63,12 +30,11 @@ def escribir_csv(metrica_dict, csv_path, modelos):
             ("Cota dual", 'cota_dual'),
             ("Mejor objetivo", 'mejor_objetivo'),
         ]
-        # Mapeo de modelo a columna
         modelo_a_columna = {
-            'modelo0': 2, # Sección 5
-            'modelo1': 3, # Col. iniciales
-            'modelo2': 4, # Rankear
-            'modelo3': 5, # Eliminar col.
+            'modelo0': 2,
+            'modelo1': 3,
+            'modelo2': 4,
+            'modelo3': 5,
         }
         for instancia, modelos_metricas in metrica_dict.items():
             first = True
@@ -90,76 +56,72 @@ def main():
         sys.exit(1)
     cfg_path = sys.argv[1]
 
-    # Lee el archivo de configuración y obtiene los paths y parámetros
     config = leer_config(cfg_path)
 
-    # Obtiene el path de los archivos de entrada y el umbral de tiempo
     input_path = config['inPath']
+    input_path_abs = os.path.abspath(input_path)
+    print("Ruta absoluta carpeta inputs:", input_path_abs)
+    print("Archivos en carpeta:", os.listdir(input_path_abs) if os.path.exists(input_path_abs) else "No existe")
+
     threshold = int(config['threshold'])
 
-    modelos = []        # Lista de nombres de modelos (ej: modelo1, modelo2...)
-    out_paths = {}      # Diccionario: nombre_modelo -> path de salida
-    model_paths = {}    # Diccionario: nombre_modelo -> path del script del modelo
+    modelos = []
+    out_paths = {}
+    model_paths = {}
     parte6_dir = os.path.dirname(__file__) 
 
-    # Busca en el config las líneas que empiezan con 'model' y 'outPath'
     for k, v in config.items():
         if k.startswith('model'):
             idx = k[5:]
             modelos.append(f"modelo{idx}")
-            model_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)  # ← ruta absoluta al modelo
+            model_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)
         if k.startswith('outPath'):
             idx = k[7:]
-            out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)  # ← idem para salida
+            out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)
 
-    # metrica_dict almacenará los resultados para cada instancia y modelo
     metrica_dict = {}
-
-    # Obtener lista de archivos de entrada
     input_files = sorted(glob.glob(os.path.join(input_path, '*.txt')))
-    
-    # ----------------------------------------------------------------------------#
-    # TODO: BORRAR ESTA LINEAL PARA HACER LA PRUEBA FINAL
-    # Solo tomar los primeros dos archivos de entrada (Ahorrar tiempo en el debug)
-    input_files = input_files[:2]
-    # ----------------------------------------------------------------------------#
+    input_files = input_files[:4]  # las primeras 4 del dataset A
 
-    metrica_dict = {}
+    print("Modelos detectados:", modelos)
+    print("Archivos de input:", [os.path.basename(f) for f in input_files])
 
     for modelo in modelos:
         print(f"Ejecutando {modelo} ...")
-        # Cargar clase Columns desde el archivo del modelo
         spec = importlib.util.spec_from_file_location("modulo_modelo", model_paths[modelo])
         modulo_modelo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(modulo_modelo)
         Columns = getattr(modulo_modelo, "Columns")
         out_dir = out_paths[modelo]
         os.makedirs(out_dir, exist_ok=True)
-        metricas = []
         for input_file in input_files:
+            nombre_archivo = os.path.basename(input_file)
             W, S, LB, UB = leer_input(input_file)
             solver = Columns(W, S, LB, UB)
             resultado = solver.Opt_ExplorarCantidadPasillos(threshold)
-            # Guardar resultado JSON
-            nombre_salida = os.path.join(out_dir, os.path.basename(input_file).replace('.txt', '.json'))
-            with open(nombre_salida, 'w') as f:
-                json.dump(resultado, f)
-            # Métricas
+            if resultado is None:
+                print(f"⚠️ Atención: resultado None para {modelo} - {nombre_archivo}, se asignan valores por defecto")
+                resultado = {}
+
             metrica = {
-                'instancia': os.path.basename(input_file),
-                'mejor_objetivo': resultado.get('valor_objetivo'),
-                'pasillos_seleccionados': resultado.get('pasillos_seleccionados'),
-                'ordenes_seleccionadas': resultado.get('ordenes_seleccionadas'),
-                'cota_dual': resultado.get('cota_dual'),
-                # Puedes agregar más métricas si quieres
+                'instancia': nombre_archivo,
+                'mejor_objetivo': resultado.get('valor_objetivo', ''),
+                'pasillos_seleccionados': resultado.get('pasillos_seleccionados', ''),
+                'ordenes_seleccionadas': resultado.get('ordenes_seleccionadas', ''),
+                'cota_dual': resultado.get('cota_dual', ''),
+                'restricciones': resultado.get('restricciones', 0),
+                'variables': resultado.get('variables', 0),
+                'variables_final': resultado.get('variables_final', 0),
             }
-            metricas.append(metrica)
-            if os.path.basename(input_file) not in metrica_dict:
-                metrica_dict[os.path.basename(input_file)] = {}
-            metrica_dict[os.path.basename(input_file)][modelo] = metrica
-            
+
+
+            if nombre_archivo not in metrica_dict:
+                metrica_dict[nombre_archivo] = {}
+            metrica_dict[nombre_archivo][modelo] = metrica
+
+
     escribir_csv(metrica_dict, 'resultados_parte6.csv', modelos)
-    print("Resultados guardados en resultados_parte6.csv")
+    print("\n✅ Resultados guardados en resultados_parte6.csv")
 
 if __name__ == "__main__":
     main()

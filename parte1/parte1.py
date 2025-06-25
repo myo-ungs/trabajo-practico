@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
 # Leer datos desde archivo
-archivo_input = "datos_de_entrada/A/instance_0001.txt"
+archivo_input = "datos_de_entrada/A/instance_0004.txt"
 W, S, LB, UB = leer_input(archivo_input)
 
 # Cantidad de pasillos a seleccionar

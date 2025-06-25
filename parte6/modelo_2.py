@@ -11,6 +11,13 @@ from cargar_input import leer_input
 import json
 
 class Columns(ColumnsBase):
+
+    def __init__(self, W, S, LB, UB):
+        super().__init__(W, S, LB, UB)
+        self.n_pasillos = self.A  # Alias para compatibilidad con Rankear
+
+
+    
     def Rankear(self):
         """
         Variante ML: Agrupa los pasillos por similitud de capacidad usando KMeans y prioriza k que representen grupos distintos.
@@ -34,4 +41,4 @@ class Columns(ColumnsBase):
             suma_capacidad_k = sum(capacidades[a][0] for a in pasillos_ordenados[:min(k, len(pasillos_ordenados))])
             lista_k.append((k, suma_capacidad_k))
         lista_k.sort(key=lambda x: x[1], reverse=True)
-        return [k for k, _ in lista_k]
+        return lista_k
