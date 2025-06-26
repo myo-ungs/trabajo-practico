@@ -468,9 +468,9 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
             Las siguientes alternativas fueron evaluadas por separado:
 
             \begin{enumerate}[label=\arabic*.]
-                \item \textbf{Columnas iniciales eficientes:} ????????????????????
-                \item \textbf{Rankear mejorado:} ??????????????
-                \item \textbf{Eliminar columnas inactivas:} ?????????????????????????
+                \item \textbf{Columnas iniciales eficientes:} mejora en la generación de columnas iniciales, seleccionando pasillos con mayor capacidad.
+                \item \textbf{Rankear mejorado:} utiliza KMeans para agrupar pasillos por capacidad y priorizar valores de \(k\) representativos.
+                \item \textbf{Eliminar columnas inactivas:} elimina columnas no utilizadas en varias iteraciones para reducir el tamaño del modelo maestro.
             \end{enumerate}
 
             Cada una de estas variantes se evalúa por separado frente al modelo base de la Parte 5, sobre las primeras 4 instancias del conjunto de datos. Se implementa un script que automatiza la ejecución de cada modelo con los mismos inputs y condiciones, y que genera un archivo CSV con métricas comparativas.
@@ -534,11 +534,74 @@ Los datos del problema se proporcionan en archivos de texto estructurados con el
 \begin{enumerate}[label=(\alph*), leftmargin=2em]
     \item \textbf{Modelos matemáticos utilizados:}
     \begin{enumerate}[label=\roman*., leftmargin=0.2em]
-        \item Descripción del problema que resuelve cada modelo.
-        \item Definición de variables utilizadas.
-        \item Modelo matemático completo.
-        \item Explicación de la función objetivo y las restricciones.
+    
+        \item \textbf{Descripción del problema que resuelve cada modelo.}
+        
+        En esta etapa tambíen se aborda el \textit{Desafío(|A'|)} mediante dos enfoques complementarios:
+
+        \begin{itemize}
+            \item \textbf{FastSolver:} un solucionador heurístico diseñado para instancias grandes. Utiliza una heurística greedy que selecciona los pasillos con mayor capacidad y luego agrega órdenes de mayor beneficio siempre que su demanda no exceda la capacidad total. Luego aplica una mejora por búsqueda local mediante intercambio de órdenes.
+            
+            \item \textbf{Columns (mejorado):} una extensión del modelo exacto con generación de columnas. Implementa mejoras de la Parte 6 como:
+            \begin{itemize}
+                \item Selección inicial de columnas basada en pasillos con mayor capacidad,
+                \item Rankeo de valores de \(k\) usando KMeans para priorizar subconjuntos de pasillos representativos,
+                \item Eliminación dinámica de columnas no utilizadas durante las iteraciones.
+            \end{itemize}
+            Este modelo construye iterativamente un conjunto de columnas factibles y optimiza la combinación lineal entera de las mismas, resolviendo subproblemas hasta alcanzar una solución cercana al óptimo.
+        \end{itemize}
+
+         Si la instancia es pequeña se usa el modelo exacto, y si es grande se preprocesa la instancia y se aplica FastSolver.
+
+        \item \textbf{Definición de variables utilizadas.}
+
+        \textit{En el modelo de generación de columnas:}
+        \begin{itemize}
+            \item \( z_j \in \{0,1\} \): variable que indica si la columna \(j\) es seleccionada.
+            \item \( c_j \): beneficio o cantidad total de ítems de las órdenes en la columna \(j\).
+            \item \( o_{jo} \in \{0,1\} \): parámetro que vale 1 si la orden \(o\) está contenida en la columna \(j\).
+            \item \( k \): cantidad de pasillos seleccionados.
+        \end{itemize}
+
+        \textit{En FastSolver:}
+        \begin{itemize}
+            \item Listas de índices de órdenes y pasillos seleccionados.
+            \item \( capacidad\_total[i] \): capacidad disponible del ítem \(i\) considerando los pasillos elegidos.
+            \item \( demanda\_usada[i] \): demanda acumulada del ítem \(i\).
+            \item \( valor\_objetivo \): beneficio acumulado por las órdenes aceptadas.
+        \end{itemize}
+
+        \item \textbf{Modelo matemático completo.}
+
+        El modelo general de generación de columnas se puede formular como:
+
+        \[
+        \begin{aligned}
+        \max \quad & \sum_{j \in \mathcal{C}} c_j z_j \\
+        \text{sujeto a} \quad
+        & \sum_{j \in \mathcal{C}} z_j \cdot o_{jo} \leq 1 & \forall o \in \mathcal{O} \quad \text{(cada orden a lo sumo una vez)} \\
+        & LB \leq \sum_{j \in \mathcal{C}} c_j z_j \leq UB & \text{(cantidad total de órdenes)} \\
+        & z_j \in \{0,1\} & \forall j \in \mathcal{C}
+        \end{aligned}
+        \]
+
+        Donde \( \mathcal{C} \) es el conjunto de columnas generadas, y \( \mathcal{O} \) es el conjunto de órdenes.
+
+        \item \textbf{Explicación de la función objetivo y las restricciones.}
+
+        \begin{itemize}
+            \item \textbf{Función objetivo:} maximizar el beneficio total de las órdenes seleccionadas a través de las columnas elegidas. Este beneficio suele estar dado por la cantidad total de ítems cubiertos.
+            
+            \item \textbf{Restricciones:}
+            \begin{itemize}
+                \item Cada orden puede ser cubierta a lo sumo una vez.
+                \item La cantidad total de órdenes seleccionadas debe estar dentro del intervalo \([LB, UB]\).
+                \item Las variables son binarias, reflejando decisiones de activación de columnas.
+            \end{itemize}
+        \end{itemize}
+
     \end{enumerate}
+
 
     \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
 \end{enumerate}
@@ -602,33 +665,47 @@ La siguiente tabla presenta una comparación entre el mejor modelo obtenido en l
 \toprule
 \textbf{Instancia} & \textbf{Métrica} & \textbf{Parte 6} & \textbf{Parte 7} \\
 \midrule
-\multirow{5}{*}{instance\_0001} 
-  & Restricciones               & 0   & 0   \\
-  & \# variables iniciales      & 0   & 0   \\
-  & \# variables últ. maestro   & 0   & 0   \\
-  & Cota dual                   & 0   & 0   \\
-  & Mejor objetivo              & 0   & 0   \\
+\multirow{5}{*}{A\_instance\_0001} 
+  & Restricciones               & 157   & 157   \\
+  & \# variables iniciales      & 17  & 17   \\
+  & \# variables últ. maestro   & 17  & 17  \\
+  & Cota dual                   & 51  & 51  \\
+  & Mejor objetivo              & 68   & 68  \\
 \midrule
-\multirow{5}{*}{instance\_0002} 
-  & Restricciones               & 0   & 0   \\
-  & \# variables iniciales      & 0   & 0   \\
-  & \# variables últ. maestro   & 0   & 0   \\
-  & Cota dual                   & 0   & 0   \\
-  & Mejor objetivo              & 0   & 0   \\
+\multirow{5}{*}{A\_instance\_0002} 
+  & Restricciones               & 9   & 9  \\
+  & \# variables iniciales      & 6   & 6   \\
+  & \# variables últ. maestro   & 6   & 6   \\
+  & Cota dual                   & 8   & 8   \\
+  & Mejor objetivo              & 2   & 2   \\
 \midrule
-\multirow{5}{*}{instance\_0003} 
-  & Restricciones               & 0   & 0   \\
-  & \# variables iniciales      & 0   & 0   \\
-  & \# variables últ. maestro   & 0   & 0   \\
-  & Cota dual                   & 0   & 0   \\
-  & Mejor objetivo              & 0   & 0   \\
+\multirow{5}{*}{A\_instance\_0003} 
+  & Restricciones               & 248   & 248   \\
+  & \# variables iniciales      & 14   & 14 \\
+  & \# variables últ. maestro   & 14   & 14   \\
+  & Cota dual                   & 50   & 50   \\
+  & Mejor objetivo              & 75   & 75   \\
 \midrule
-\multirow{5}{*}{instance\_0004} 
-  & Restricciones               & 0   & 0   \\
-  & \# variables iniciales      & 0   & 0   \\
-  & \# variables últ. maestro   & 0   & 0   \\
-  & Cota dual                   & 0   & 0   \\
-  & Mejor objetivo              & 0   & 0   \\
+\multirow{5}{*}{B\_instance\_0001} 
+  & Restricciones               & 0   & 7675   \\
+  & \# variables iniciales      & 7   & 30   \\
+  & \# variables últ. maestro   & 7   & 30   \\
+  & Cota dual                   & 0   & 350   \\
+  & Mejor objetivo              & 0   & 350   \\
+\midrule
+  \multirow{5}{*}{B\_instance\_0002} 
+  & Restricciones               & 0   & 5922   \\
+  & \# variables iniciales      & 5   & 30   \\
+  & \# variables últ. maestro   & 5   & 30   \\
+  & Cota dual                   & 0   & 3450   \\
+  & Mejor objetivo              & 0   & 3450   \\
+\midrule
+\multirow{5}{*}{B\_instance\_0003} 
+  & Restricciones               & 0   & 5617   \\
+  & \# variables iniciales      & 4   & 30   \\
+  & \# variables últ. maestro   & 4   & 30   \\
+  & Cota dual                   & 0   & 2150   \\
+  & Mejor objetivo              & 0   & 2150   \\
 \bottomrule
 \end{tabularx}
 \caption{Comparación entre el mejor modelo de la Parte 6 y el de la Parte 7 para las instancias del dataset A}
@@ -642,12 +719,6 @@ La siguiente tabla presenta una comparación entre el mejor modelo obtenido en l
 \textbf{Dificultades:}
 
 \begin{enumerate}
-    \item \textbf{Comprensión del contexto del problema}
-    
-    La transición conceptual desde la descripción abstracta del problema hacia su interpretación en el contexto real de optimización de almacenes requirió un análisis cuidadoso de la semántica de variables y restricciones.
-    
-    \emph{Aprendizaje:} La importancia de contextualizar problemas de optimización en dominios específicos para una mejor comprensión y comunicación de resultados.
-
 
     \item \textbf{Generación de Nuevas Columnas}
     
@@ -655,12 +726,19 @@ La siguiente tabla presenta una comparación entre el mejor modelo obtenido en l
     
     \emph{Solución:} Se modificó la estrategia de inicialización de columnas, reduciendo el conjunto inicial a un subconjunto más pequeño y representativo: columnas con una sola orden cada una. Esta nueva configuración constituye un punto de partida factible, pero no saturado de columnas repetidas, lo que permite que el método agregue nuevas columnas y mejore iterativamente la solución.
 
+    \item \textbf{Instancias grandes}
+    
+    Durante el desarrollo observamos que, al ejecutar el modelo exacto con generación de columnas sobre algunas instancias grandes, como las que se encuentran en la carpeta \texttt{"b"} el tiempo de cómputo aumentaba considerablemente y en algunos casos el proceso quedaba detenido indefinidamente sin devolver resultados. Esto se debe a que, en estos casos, la generación de nuevas columnas es costosa y el solver puede requerir resolver modelos con miles de variables binarios en múltiples iteraciones, lo cual resulta inviable en un entorno con recursos limitados.
+    
+    \emph{Solución:} Para abordar esta limitación, se diseñó e implementó un modelo heurístico \texttt{FastSolver}, utilizado en la sección 7, que permite obtener soluciones factibles de buena calidad en tiempos significativamente menores. Este enfoque se basa en una heurística greedy para seleccionar pasillos y órdenes, complementada con una búsqueda local que mejora la solución inicial. Si bien no garantiza optimalidad, su eficiencia lo convierte en una herramienta clave para tratar instancias de gran escala. Para la sección 5 se agregó un timer que corta la ejecución en los modelos que no terminan por su tamaño, y se determinó que estos no tienen solución. 
+
 \end{enumerate}
 
 \textbf{Principales aprendizajes obtenidos:}
 
 \begin{itemize}
-    \item \textbf{SCIP}: 
+    \item \textbf{Generación de columnas}: 
+    \item \textbf{SCIP Y Pyscipopt}:
     
 \end{itemize}
 

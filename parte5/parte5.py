@@ -11,7 +11,7 @@ W, S, LB, UB = leer_input(archivo_input)
 # Instanciar y ejecutar
 solver = Columns(W, S, LB, UB)
 
-resultado = solver.Opt_ExplorarCantidadPasillos(16000)
+resultado = solver.Opt_ExplorarCantidadPasillos(200)
 if resultado:
     print("=== RESULTADO FINAL ===")
     print("Valor objetivo:", resultado["valor_objetivo"])

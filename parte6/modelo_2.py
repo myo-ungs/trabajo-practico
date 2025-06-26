@@ -7,16 +7,12 @@ try:
 except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from parte5.columns_solver import Columns as ColumnsBase
-from cargar_input import leer_input
-import json
 
 class Columns(ColumnsBase):
 
     def __init__(self, W, S, LB, UB):
         super().__init__(W, S, LB, UB)
-        self.n_pasillos = self.A  # Alias para compatibilidad con Rankear
-
-
+        self.n_pasillos = self.A  
     
     def Rankear(self):
         """

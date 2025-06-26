@@ -1,10 +1,8 @@
 import os
 import sys
-import time
 import csv
 import importlib.util
 import glob
-import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input

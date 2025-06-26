@@ -1,6 +1,6 @@
 import time
 import random
-from pyscipopt import Model, quicksum
+from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
 
 class Columns:
     def __init__(self, W, S, LB, UB):
@@ -14,22 +14,36 @@ class Columns:
         self.columnas = {}
         self.pasillos_fijos = []
 
-    def inicializar_columnas_para_k(self, k):
+
+    def inicializar_columnas_para_k(self, k, umbral):
+        tiempo_ini = time.time()
         if k not in self.columnas:
             columnas_iniciales = []
             unidades_o = [sum(self.W[o]) for o in range(self.O)]
+
             for o in range(self.O):
+                print("coluumna", (time.time() - tiempo_ini), umbral)
+                
+                if umbral and (time.time() - tiempo_ini) > umbral:
+                    print("⏱️ Tiempo agotado durante inicialización de columnas")
+                    break
+
                 for a in range(self.A):
+                    if umbral and (time.time() - tiempo_ini) > umbral:
+                        print("⏱️ Tiempo agotado durante inicialización de columnas (interior)")
+                        break
+
                     cap = self.S[a][:]
                     if all(self.W[o][i] <= cap[i] for i in range(self.I)) and unidades_o[o] <= self.UB:
                         sel = [0] * self.O
                         sel[o] = 1
                         columnas_iniciales.append({'pasillo': a, 'ordenes': sel, 'unidades': unidades_o[o]})
-                        break
+                        break  # No sigue buscando pasillos para esta orden
+
             self.columnas[k] = columnas_iniciales
 
-    def construir_modelo(self, k):
-        self.inicializar_columnas_para_k(k)
+    def construir_modelo(self, k, umbral):
+        self.inicializar_columnas_para_k(k, umbral)
         modelo = Model(f"RMP_k_{k}")
         modelo.setParam('display/verblevel', 0)  # silenciar logs
         x_vars = []
@@ -142,27 +156,44 @@ class Columns:
 
     def Opt_cantidadPasillosFija(self, k, umbral):
         tiempo_ini = time.time()
-        self.inicializar_columnas_para_k(k)
+        self.inicializar_columnas_para_k(k, umbral)
         print(f"Columnas iniciales para k={k}: {len(self.columnas[k])}")
         self.columnas_iniciales = len(self.columnas[k])
 
-        while time.time() - tiempo_ini < umbral:
-            print(f"⌛ Iteración con {len(self.columnas[k])} columnas")
-            print(f"Columnas actuales para k={k}: {len(self.columnas[k])}")
-            modelo, x_vars, restricciones_duales = self.construir_modelo(k)
-            modelo_resuelto = self.resolver_modelo(modelo, umbral)
-            if not modelo_resuelto:
-                break
-            duales = self.obtener_valores_duales(modelo, restricciones_duales)
-            nueva = self.buscar_columna_mejoradora(k, duales)
-            if not nueva or not self.agregar_columna(k, nueva):
-                break
-            if time.time() - tiempo_ini > umbral:
-                print("⏰ Umbral de tiempo alcanzado, saliendo del bucle")
+        while True:
+            tiempo_actual = time.time()
+            tiempo_transcurrido = tiempo_actual - tiempo_ini
+            tiempo_restante = umbral - tiempo_transcurrido
+
+            if tiempo_restante <= 1:
+                print("⏰ Tiempo insuficiente para continuar (restante <= 1s)")
                 break
 
-        modelo, x_vars, restricciones_duales = self.construir_modelo(k)
-        modelo_resuelto = self.resolver_modelo(modelo, umbral)
+            print(f"⌛ Iteración con {len(self.columnas[k])} columnas")
+
+            modelo, x_vars, restricciones_duales = self.construir_modelo(k, umbral)
+            modelo_resuelto = self.resolver_modelo(modelo, time_limit=tiempo_restante)
+
+            if not modelo_resuelto:
+                print("No se pudo resolver el modelo (o no óptimo)")
+                break
+
+            duales = self.obtener_valores_duales(modelo, restricciones_duales)
+
+            nueva = self.buscar_columna_mejoradora(k, duales)
+            if not nueva or not self.agregar_columna(k, nueva):
+                print("No se encontró columna mejoradora o no se pudo agregar")
+                break
+
+        # Último intento de resolver modelo final con lo que se tiene
+        tiempo_restante_final = umbral - (time.time() - tiempo_ini)
+        if tiempo_restante_final <= 1:
+            print("⏰ Sin tiempo suficiente para resolver el modelo final")
+            return None
+
+        modelo, x_vars, restricciones_duales = self.construir_modelo(k, umbral)
+        modelo_resuelto = self.resolver_modelo(modelo, time_limit=tiempo_restante_final)
+
         if not modelo_resuelto:
             print("No se pudo resolver el modelo final para k =", k)
             return None
@@ -187,8 +218,6 @@ class Columns:
             "cota_dual": self.ultima_cota_dual
         }
 
-
-    from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
 
     def Opt_PasillosFijos(self, umbral):
         if not self.pasillos_fijos:

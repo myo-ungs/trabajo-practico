@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 try:
     from parte5.columns_solver import Columns as ColumnsBase
 except ImportError:
@@ -14,18 +15,17 @@ class Columns(ColumnsBase):
 
     def Opt_cantidadPasillosFija(self, k, umbral):
         """
-        Variante con PySCIPOpt que elimina columnas no usadas en las últimas 5 iteraciones.
+        Variante que elimina columnas no usadas en las últimas 5 iteraciones.
         """
-        import time
 
         start = time.time()
-        self.inicializar_columnas_para_k(k)  # Asegura columnas iniciales
+        self.inicializar_columnas_para_k(k, umbral)  # Asegura columnas iniciales
 
         historial_no_usadas = {}
         iteraciones = 0
 
         while time.time() - start < umbral:
-            modelo, lambdas_list, restr = self.construir_modelo(k)
+            modelo, lambdas_list, restr = self.construir_modelo(k,umbral)
             lambdas = {j: var for j, var in enumerate(lambdas_list)}
 
             modelo.optimize()
@@ -58,7 +58,7 @@ class Columns(ColumnsBase):
                 break  # Si no se eliminaron columnas, termina antes
 
         # Resolver modelo final
-        modelo, lambdas_list, restr = self.construir_modelo(k)
+        modelo, lambdas_list, restr = self.construir_modelo(k, umbral)
         modelo.optimize()
 
         lambdas = {j: var for j, var in enumerate(lambdas_list)}
