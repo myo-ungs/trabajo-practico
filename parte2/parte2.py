@@ -10,7 +10,7 @@ archivo_input = "datos_de_entrada/A/instance_0001.txt"
 # Leer datos desde archivo
 W, S, LB, UB = leer_input(archivo_input)
 
-pasillos = [1, 3]  # pasillos seleccionados (ejemplo)
+pasillos = [2,4,0,4]  # pasillos seleccionados (ejemplo)
 
 n_ordenes = len(W)
 n_elementos = len(W[0])

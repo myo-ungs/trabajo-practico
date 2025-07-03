@@ -1,11 +1,21 @@
 Instancia;Métrica;Sección 5;Col. iniciales;Rankear;Eliminar col.
-input_0001.txt;Restricciones;;;;
-;# variables inicial;;;;
-;# variables en últ. maestro;;;;
+instance_0001.txt;Restricciones;0;0;0;0
+;# variables inicial;0;0;0;0
+;# variables en últ. maestro;0;0;0;0
 ;Cota dual;;;;
-;Mejor objetivo;51.0;54.0;51.0;51.0
-input_0002.txt;Restricciones;;;;
-;# variables inicial;;;;
-;# variables en últ. maestro;;;;
+;Mejor objetivo;;;;
+instance_0002.txt;Restricciones;0;0;0;0
+;# variables inicial;0;0;0;0
+;# variables en últ. maestro;0;0;0;0
 ;Cota dual;;;;
-;Mejor objetivo;11.0;8.0;11.0;27.0
+;Mejor objetivo;;;;
+instance_0003.txt;Restricciones;0;0;0;0
+;# variables inicial;0;0;0;0
+;# variables en últ. maestro;0;0;0;0
+;Cota dual;;;;
+;Mejor objetivo;;;;
+instance_0004.txt;Restricciones;0;0;0;0
+;# variables inicial;0;0;0;0
+;# variables en últ. maestro;0;0;0;0
+;Cota dual;;;;
+;Mejor objetivo;;;;

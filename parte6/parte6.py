@@ -118,7 +118,7 @@ def main():
             metrica_dict[nombre_archivo][modelo] = metrica
 
 
-    escribir_csv(metrica_dict, 'resultados_parte6.csv', modelos)
+    escribir_csv(metrica_dict, 'parte6/resultados_parte6.csv', modelos)
     print("\n✅ Resultados guardados en resultados_parte6.csv")
 
 if __name__ == "__main__":

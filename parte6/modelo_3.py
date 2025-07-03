@@ -25,7 +25,7 @@ class Columns(ColumnsBase):
         iteraciones = 0
 
         while time.time() - start < umbral:
-            modelo, lambdas_list, restr = self.construir_modelo(k,umbral)
+            modelo, lambdas_list, restr_k, restr_o, restr_u, restr_cov = self.construir_modelo_maestro(k,umbral)
             lambdas = {j: var for j, var in enumerate(lambdas_list)}
 
             modelo.optimize()
@@ -58,7 +58,7 @@ class Columns(ColumnsBase):
                 break  # Si no se eliminaron columnas, termina antes
 
         # Resolver modelo final
-        modelo, lambdas_list, restr = self.construir_modelo(k, umbral)
+        modelo, lambdas_list, _ , _ , _ , _ = self.construir_modelo_maestro(k, umbral)
         modelo.optimize()
 
         lambdas = {j: var for j, var in enumerate(lambdas_list)}
