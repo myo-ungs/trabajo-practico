@@ -1,5 +1,4 @@
 import time
-import random
 from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
 
 def construir_mejor_solucion(modelo_relajado, columnas_k, obj_val, cant_var_inicio):
@@ -38,7 +37,6 @@ class Columns:
         self.cant_var_inicio = 0
 
     def inicializar_columnas_para_k(self, k, umbral=None, limite_columnas=None):
-        import time
         tiempo_ini = time.time()
 
         if not hasattr(self, 'columnas'):
@@ -107,6 +105,7 @@ class Columns:
                         break  # No sigue buscando pasillos para esta orden
 
             self.columnas[k] = columnas_iniciales
+
     def construir_modelo_maestro(self, k, umbral):
         modelo = Model(f"RMP_k_{k}")
         modelo.setParam('display/verblevel', 0)
@@ -170,7 +169,6 @@ class Columns:
         return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov
 
     def resolver_subproblema(self, W, S, pi, UB, k, umbral=None):
-        import time
         tiempo_ini = time.time()
 
         O = len(W)
