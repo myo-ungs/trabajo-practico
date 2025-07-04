@@ -82,6 +82,31 @@ class Columns:
         print(f"✅ {len(self.columnas[k])} columnas iniciales creadas (una por pasillo) para k = {k}")
 
 
+        tiempo_ini = time.time()
+        if k not in self.columnas:
+            columnas_iniciales = []
+            unidades_o = [sum(self.W[o]) for o in range(self.O)]
+
+            for o in range(self.O):
+                # print("coluumna", (time.time() - tiempo_ini), umbral)
+                
+                if umbral and (time.time() - tiempo_ini) > umbral:
+                    print("⏱️ Tiempo agotado durante inicialización de columnas")
+                    break
+
+                for a in range(self.A):
+                    if umbral and (time.time() - tiempo_ini) > umbral:
+                        print("⏱️ Tiempo agotado durante inicialización de columnas (interior)")
+                        break
+
+                    cap = self.S[a][:]
+                    if all(self.W[o][i] <= cap[i] for i in range(self.I)) and unidades_o[o] <= self.UB:
+                        sel = [0] * self.O
+                        sel[o] = 1
+                        columnas_iniciales.append({'pasillo': a, 'ordenes': sel, 'unidades': unidades_o[o]})
+                        break  # No sigue buscando pasillos para esta orden
+
+            self.columnas[k] = columnas_iniciales
     def construir_modelo_maestro(self, k, umbral):
         modelo = Model(f"RMP_k_{k}")
         modelo.setParam('display/verblevel', 0)
@@ -152,7 +177,7 @@ class Columns:
         I = len(W[0])
         A = len(S)
 
-        units_o = [sum(W[o]) for o in range(O)]  # uo
+        units_o = [sum(W[o]) for o in range(O)]
 
         # Obtener duales
         pi_card_k = pi[0]                           # Yk
@@ -186,11 +211,21 @@ class Columns:
                     quicksum(W[o][i] * z[o] for o in range(O)) <= supply[i]
                 )
 
-            total_units = quicksum(units_o[o] * z[o] for o in range(O))
-            modelo.addCons(total_units <= UB)
-            modelo.addCons(total_units >= self.LB)
-            modelo.addCons(quicksum(z[o] for o in range(O)) >= 1, name="al_menos_una_orden")
+            modelo.addCons(quicksum(units_o[o] * z[o] for o in range(O)) <= UB)
+            modelo.addCons(quicksum(z[o] for o in range(O)) >= 1)
 
+            # Evitar columnas exactamente iguales ya generadas
+            for c in self.columnas[k]:
+                if c['pasillo'] != a:
+                    continue  # Solo columnas del mismo pasillo
+
+                mismos = [o for o in range(O) if c['ordenes'][o] == 1]
+                if mismos:
+                    modelo.addCons(
+                        quicksum(z[o] for o in mismos) <= len(mismos) - 1
+                    )
+
+            # Objetivo: maximizar costo reducido
             modelo.setObjective(
                 quicksum(price_o[o] * z[o] for o in range(O)) - pi_card_k,
                 sense="maximize"
@@ -202,24 +237,25 @@ class Columns:
                 continue
 
             reduced_cost = modelo.getObjVal()
-            print("Costo reducido:", reduced_cost)
+            print(f"[Pasillo {a}] → Costo reducido: {reduced_cost}")
+
             if reduced_cost <= 1e-6:
-                return None  # No mejora el maestro
+                continue
 
             ordenes = [int(modelo.getVal(z[o]) + 0.5) for o in range(O)]
             unidades = sum(units_o[o] for o in range(O) if ordenes[o])
             columna = {'pasillo': a, 'ordenes': ordenes, 'unidades': unidades}
 
             if columna in self.columnas[k]:
-                print("Genere pero es repe⚠️")
+                print("Genere pero es repe⚠️", columna)
                 continue
-            else:
-                self.columnas[k].append(columna)
-                return columna
+
+            self.columnas[k].append(columna)
+            return columna
 
         return None
 
-    
+
     def agregar_columna(self, maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k):
         idx = len(self.columnas[k])  # índice para nombrar la nueva variable
         x = maestro.addVar(vtype="B", name=f"x_{nueva_col['pasillo']}_{idx}", obj=nueva_col['unidades'])
@@ -247,8 +283,7 @@ class Columns:
         
         # Reservar 30% del tiempo para inicialización
         tiempo_inicializacion = 0.3 * umbral
-        tiempo_max_subproblema = 0.2  # Tiempo máximo por subproblema, en segundos
-        
+
         self.inicializar_columnas_para_k(k, umbral=tiempo_inicializacion)
         
         mejor_sol = None
@@ -305,8 +340,7 @@ class Columns:
             print("❤️ Cantidad de columnas antes de agregar:", len(self.columnas[k]))
 
             # Subproblema que busca una columna mejoradora
-            tiempo_subproblema = min(tiempo_max_subproblema, umbral - (time.time() - tiempo_ini))
-            nueva_col = self.resolver_subproblema(self.W, self.S, pi, self.UB, k, tiempo_subproblema)
+            nueva_col = self.resolver_subproblema(self.W, self.S, pi, self.UB, k, tiempo_restante_total)
 
             if nueva_col is None:
                 print("No se generó una columna mejoradora o era repetida → Fin del bucle.")
@@ -364,26 +398,20 @@ class Columns:
 
     def Opt_ExplorarCantidadPasillos(self, umbral):
         self.columnas = {}
-        best_sol, best_val = None, -float('inf')
+        best_sol = None
         tiempo_ini = time.time()
-        lista_k = self.Rankear()
-        total_potencial = sum(pot for _, pot in lista_k)
 
-        # Reservar un 10% del tiempo para Opt_PasillosFijos
-        margen_final = max(1.0, 0.10 * umbral)
-        tiempo_exploracion = umbral - margen_final
+        # Nueva forma de llamar a Rankear
+        lista_k, lista_umbrales = self.Rankear(umbral)
 
-        for k, potencial in lista_k:
-            tiempo_restante = tiempo_exploracion - (time.time() - tiempo_ini)
+        for k, tiempo_k in zip(lista_k, lista_umbrales):
+            tiempo_restante = umbral - (time.time() - tiempo_ini)
             if tiempo_restante <= 0:
                 print("⏳ Sin tiempo restante para seguir evaluando k.")
                 break
 
-            # Asignar tiempo proporcional al potencial
-            tiempo_k = max(0.1, tiempo_exploracion * (potencial / total_potencial))
-            tiempo_k = min(tiempo_k, tiempo_restante)
-
             print(f"Evaluando k={k} con tiempo asignado {tiempo_k:.2f} segundos")
+
             sol = self.Opt_cantidadPasillosFija(k, tiempo_k)
 
             if sol is not None:
@@ -392,17 +420,15 @@ class Columns:
                 print("❌ No se encontró una solución dentro del tiempo límite.")
 
             if sol:
-                n_ordenes = len(sol["ordenes_seleccionadas"])
-                n_pasillos = len(sol["pasillos_seleccionados"])
-                best_n_ordenes = len(best_sol["ordenes_seleccionadas"]) if best_sol else -1
-                best_n_pasillos = len(best_sol["pasillos_seleccionados"]) if best_sol else float('inf')
-                if (n_ordenes > best_n_ordenes) or (n_ordenes == best_n_ordenes and n_pasillos < best_n_pasillos):
+                sol_obj = sol["valor_objetivo"]
+                best_obj = best_sol["valor_objetivo"] if best_sol else -float('inf')
+                if sol_obj > best_obj:
                     best_sol = sol
 
         if best_sol:
             tiempo_usado = time.time() - tiempo_ini
             tiempo_final = max(1.0, umbral - tiempo_usado)
-
+            print("✅ Resultado final realajado:", best_sol)
             print(f"⏳ Tiempo restante para Opt_PasillosFijos: {tiempo_final:.2f}s")
 
             self.pasillos_fijos = best_sol["pasillos_seleccionados"]
@@ -410,25 +436,37 @@ class Columns:
 
             if resultado_final is None:
                 print("⚠️ Opt_PasillosFijos no devolvió una solución válida.")
-                return {"valor_objetivo": 0,"ordenes_seleccionadas": set(),"pasillos_seleccionados": set(),"variables": best_sol.get("variables", 0),"variables_final": best_sol.get("variables_final", 0),"cota_dual": best_sol.get("cota_dual", 0),"instancia": getattr(self, "nombre_input", "")
+                return {
+                    "valor_objetivo": 0,
+                    "ordenes_seleccionadas": set(),
+                    "pasillos_seleccionados": set(),
+                    "variables": best_sol.get("variables", 0),
+                    "variables_final": best_sol.get("variables_final", 0),
+                    "cota_dual": best_sol.get("cota_dual", 0)
                 }
 
             print("✅ Resultado final con pasillos fijos:", resultado_final)
             print("✅ Cantidad de variables:", resultado_final["variables"])
             print("✅ Cantidad de variables finales:", resultado_final["variables_final"])
+
+
             return resultado_final
 
-    def Rankear(self):
+    def Rankear(self, umbral):
+        # Calcular la capacidad total por pasillo
         capacidades = [sum(self.S[a]) for a in range(self.A)]
-        pasillos_ordenados = sorted(range(self.A), key=lambda a: capacidades[a], reverse=True)
+        # Ordenar los pasillos por capacidad de mayor a menor
+        sorted(range(self.A), key=lambda a: capacidades[a], reverse=True)
+        
+        # Priorizar los valores de k de 1 a A (cantidad de pasillos)
+        # El orden ya es natural: más capacidad total acumulada para los primeros k
+        lista_k = list(range(1, self.A + 1))
 
-        lista_k = []
-        for k in range(1, self.A + 1):
-            suma_capacidad_k = sum(capacidades[a] for a in pasillos_ordenados[:k])
-            lista_k.append((k, suma_capacidad_k))
+        # Tiempo asignado por k, equitativamente
+        tiempo_por_k = umbral / len(lista_k)
+        lista_umbrales = [tiempo_por_k] * len(lista_k)
 
-        lista_k.sort(key=lambda x: x[1], reverse=True)
-        return lista_k  # Devuelve lista de tuplas (k, potencial)
+        return lista_k, lista_umbrales
 
 
 # OTRA ALTERNATIVA DE PASILLOS FIJOS, COMO EN PARTE 2
@@ -480,3 +518,7 @@ class Columns:
     #         "variables_final": len(x),
     #         "cota_dual": model.getDualbound()
     #     }
+
+
+
+

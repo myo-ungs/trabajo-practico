@@ -14,12 +14,14 @@ class Columns(ColumnsBase):
         super().__init__(W, S, LB, UB)
         self.n_pasillos = self.A  
     
-    def Rankear(self):
+    def Rankear(self, umbral):
         """
-        Variante ML: Agrupa los pasillos por similitud de capacidad usando KMeans y prioriza k que representen grupos distintos.
+        Variante ML: Agrupa pasillos por similitud de capacidad usando KMeans,
+        prioriza los k con mayor potencial y asigna tiempo proporcional a su capacidad acumulada.
         """
         capacidades = np.array([sum(self.S[a]) for a in range(self.n_pasillos)]).reshape(-1, 1)
         n_clusters = min(4, self.n_pasillos)
+
         if self.n_pasillos > 1:
             kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(capacidades)
             labels = kmeans.labels_
@@ -29,12 +31,26 @@ class Columns(ColumnsBase):
                 if indices:
                     mejor = max(indices, key=lambda a: capacidades[a][0])
                     pasillos_por_grupo.append(mejor)
+
             pasillos_ordenados = sorted(pasillos_por_grupo, key=lambda a: capacidades[a][0], reverse=True)
         else:
             pasillos_ordenados = [0]
-        lista_k = []
+
+        # Calcular lista de (k, capacidad acumulada)
+        lista_k_cap = []
         for k in range(1, self.n_pasillos + 1):
             suma_capacidad_k = sum(capacidades[a][0] for a in pasillos_ordenados[:min(k, len(pasillos_ordenados))])
-            lista_k.append((k, suma_capacidad_k))
-        lista_k.sort(key=lambda x: x[1], reverse=True)
-        return lista_k
+            lista_k_cap.append((k, suma_capacidad_k))
+
+        # Ordenar por capacidad acumulada (mayor primero)
+        lista_k_cap.sort(key=lambda x: x[1], reverse=True)
+
+        # Extraer listas ordenadas
+        lista_k = [k for k, _ in lista_k_cap]
+        capacidades_acumuladas = [cap for _, cap in lista_k_cap]
+
+        # Asignar tiempos proporcionales a la capacidad
+        total_cap = sum(capacidades_acumuladas)
+        lista_umbrales = [(cap / total_cap) * umbral for cap in capacidades_acumuladas]
+
+        return lista_k, lista_umbrales

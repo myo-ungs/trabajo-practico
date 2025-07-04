@@ -1,6 +1,8 @@
 import sys
 import os
 import time
+from pyscipopt import Model, quicksum, SCIP_PARAMSETTING
+
 try:
     from parte5.columns_solver import Columns as ColumnsBase
 except ImportError:
@@ -59,6 +61,10 @@ class Columns(ColumnsBase):
 
         # Resolver modelo final
         modelo, lambdas_list, _ , _ , _ , _ = self.construir_modelo_maestro(k, umbral)
+        # Desactivo para restricciones correctamente
+        modelo.setPresolve(SCIP_PARAMSETTING.OFF)
+        modelo.setHeuristics(SCIP_PARAMSETTING.OFF)
+        modelo.disablePropagation() 
         modelo.optimize()
 
         lambdas = {j: var for j, var in enumerate(lambdas_list)}

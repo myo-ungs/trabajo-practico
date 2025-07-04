@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
 # Cargar datos W, S, LB, UB como hacías antes
-archivo_input = "datos_de_entrada/A/instance_0020.txt"
+archivo_input = "datos_de_entrada/A/instance_0003.txt"
 W, S, LB, UB = leer_input(archivo_input)
 
 # Ejecutar parte 4
