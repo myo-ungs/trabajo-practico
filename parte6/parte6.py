@@ -25,8 +25,9 @@ def escribir_csv(metrica_dict, csv_path, modelos):
             ("Restricciones", 'restricciones'),
             ("# variables inicial", 'variables'),
             ("# variables en últ. maestro", 'variables_final'),
-            ("Cota dual", 'cota_dual'),
+           # ("Cota dual", 'cota_dual'),
             ("Mejor objetivo", 'mejor_objetivo'),
+            ("Tiempo", "tiempo_total")
         ]
         modelo_a_columna = {
             'modelo0': 2,
@@ -77,9 +78,12 @@ def main():
             idx = k[7:]
             out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)
 
+# probando solo modelo 0 y modelo 3 sacar para probar todos los modelos
+    modelos = [m for m in modelos if m in ('modelo0', 'modelo3')]
+
     metrica_dict = {}
     input_files = sorted(glob.glob(os.path.join(input_path, '*.txt')))
-    input_files = input_files[:4]  # las primeras 4 del dataset A
+    input_files = input_files[:2]  # las primeras 4 del dataset A
 
     print("Modelos detectados:", modelos)
     print("Archivos de input:", [os.path.basename(f) for f in input_files])
@@ -106,10 +110,11 @@ def main():
                 'mejor_objetivo': resultado.get('valor_objetivo', ''),
                 'pasillos_seleccionados': resultado.get('pasillos_seleccionados', ''),
                 'ordenes_seleccionadas': resultado.get('ordenes_seleccionadas', ''),
-                'cota_dual': resultado.get('cota_dual', ''),
+                #'cota_dual': resultado.get('cota_dual', ''),
                 'restricciones': resultado.get('restricciones', 0),
                 'variables': resultado.get('variables', 0),
                 'variables_final': resultado.get('variables_final', 0),
+                'tiempo_total' : resultado.get('tiempo_total',0)
             }
 
 

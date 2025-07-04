@@ -447,7 +447,7 @@ class Columns:
             print("✅ Cantidad de variables:", resultado_final["variables"])
             print("✅ Cantidad de variables finales:", resultado_final["variables_final"])
 
-
+            resultado_final["tiempo_total"] = round(time.time() - tiempo_ini, 2)
             return resultado_final
 
     def Rankear(self, umbral):
