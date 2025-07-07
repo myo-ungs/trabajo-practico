@@ -36,7 +36,7 @@ class Columns:
         self.pasillos_fijos = []
         self.cant_var_inicio = 0
 
-    def inicializar_columnas_para_k(self, k, umbral=None, limite_columnas=None):
+    def inicializar_columnas_para_k(self, k, umbral=None):
         tiempo_ini = time.time()
 
         if not hasattr(self, 'columnas'):
@@ -44,22 +44,17 @@ class Columns:
 
         self.columnas[k] = []
         unidades_o = [sum(self.W[o]) for o in range(self.O)]
-        columnas_creadas = 0
 
-        for a in range(self.A):
+        for a in range(self.A):  # Recorremos cada pasillo
             if umbral and (time.time() - tiempo_ini) > umbral:
                 print("⏱️ Tiempo agotado durante inicialización de columnas")
-                break
-
-            if limite_columnas is not None and columnas_creadas >= limite_columnas:
-                print(f"🛑 Límite de {limite_columnas} columnas alcanzado")
                 break
 
             cap_restante = list(self.S[a])
             sel = [0] * self.O
             total_unidades = 0
 
-            # Agregar órdenes greedy mientras entren
+            # Agregar órdenes greedy mientras entren (maximales)
             for o in range(self.O):
                 if all(self.W[o][i] <= cap_restante[i] for i in range(self.I)) and \
                 (total_unidades + unidades_o[o] <= self.UB):
@@ -68,43 +63,14 @@ class Columns:
                     for i in range(self.I):
                         cap_restante[i] -= self.W[o][i]
 
-            # Solo agregar columna si es factible (al menos una orden)
-            if total_unidades > 0:
-                self.columnas[k].append({
-                    'pasillo': a,
-                    'ordenes': sel,
-                    'unidades': total_unidades
-                })
-                columnas_creadas += 1
+            # Siempre agregar una columna por pasillo (aunque sea vacía)
+            self.columnas[k].append({
+                'pasillo': a,
+                'ordenes': sel,  # Puede tener todo 0 si no había órdenes factibles
+                'unidades': total_unidades
+            })
 
         print(f"✅ {len(self.columnas[k])} columnas iniciales creadas (una por pasillo) para k = {k}")
-
-
-        tiempo_ini = time.time()
-        if k not in self.columnas:
-            columnas_iniciales = []
-            unidades_o = [sum(self.W[o]) for o in range(self.O)]
-
-            for o in range(self.O):
-                # print("coluumna", (time.time() - tiempo_ini), umbral)
-                
-                if umbral and (time.time() - tiempo_ini) > umbral:
-                    print("⏱️ Tiempo agotado durante inicialización de columnas")
-                    break
-
-                for a in range(self.A):
-                    if umbral and (time.time() - tiempo_ini) > umbral:
-                        print("⏱️ Tiempo agotado durante inicialización de columnas (interior)")
-                        break
-
-                    cap = self.S[a][:]
-                    if all(self.W[o][i] <= cap[i] for i in range(self.I)) and unidades_o[o] <= self.UB:
-                        sel = [0] * self.O
-                        sel[o] = 1
-                        columnas_iniciales.append({'pasillo': a, 'ordenes': sel, 'unidades': unidades_o[o]})
-                        break  # No sigue buscando pasillos para esta orden
-
-            self.columnas[k] = columnas_iniciales
 
     def construir_modelo_maestro(self, k, umbral):
         modelo = Model(f"RMP_k_{k}")
@@ -253,7 +219,6 @@ class Columns:
 
         return None
 
-
     def agregar_columna(self, maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k):
         idx = len(self.columnas[k])  # índice para nombrar la nueva variable
         x = maestro.addVar(vtype="B", name=f"x_{nueva_col['pasillo']}_{idx}", obj=nueva_col['unidades'])
@@ -274,7 +239,6 @@ class Columns:
             contribucion_i = sum(self.W[o][i] * nueva_col['ordenes'][o] for o in range(self.O))
             if contribucion_i > 0:
                 maestro.addConsCoeff(restr_cov[i], x, contribucion_i)
-
 
     def Opt_cantidadPasillosFija(self, k, umbral):
         tiempo_ini = time.time()
@@ -362,7 +326,6 @@ class Columns:
             print(f"❌ No hay columnas generadas para k = {k}")
             return vacia
 
-
         modelo, x_vars, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante_final)
 
         # Desactivo para restricciones correctamente
@@ -370,7 +333,9 @@ class Columns:
         modelo.setHeuristics(SCIP_PARAMSETTING.OFF)
         modelo.disablePropagation() 
         modelo.optimize()
-        if modelo:
+        status = modelo.getStatus()
+
+        if status in ["optimal", "feasible"] and modelo.getNSols() > 0:
             obj_val = modelo.getObjVal()
             pasillos_seleccionados, ordenes_seleccionadas = set(), set()
             for idx, x in enumerate(x_vars):
@@ -454,14 +419,11 @@ class Columns:
         # Calcular la capacidad total por pasillo
         capacidades = [sum(self.S[a]) for a in range(self.A)]
         # Ordenar los pasillos por capacidad de mayor a menor
-        sorted(range(self.A), key=lambda a: capacidades[a], reverse=True)
-        
-        # Priorizar los valores de k de 1 a A (cantidad de pasillos)
-        # El orden ya es natural: más capacidad total acumulada para los primeros k
-        lista_k = list(range(1, self.A + 1))
+        pasillos_ordenados = sorted(range(self.A), key=lambda a: capacidades[a], reverse=True)
+        lista_k = pasillos_ordenados
 
         # Tiempo asignado por k, equitativamente
-        tiempo_por_k = umbral / len(lista_k)
+        tiempo_por_k = umbral 
         lista_umbrales = [tiempo_por_k] * len(lista_k)
 
         return lista_k, lista_umbrales

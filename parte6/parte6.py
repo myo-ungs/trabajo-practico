@@ -78,8 +78,7 @@ def main():
             idx = k[7:]
             out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)
 
-# probando solo modelo 0 y modelo 3 sacar para probar todos los modelos
-    modelos = [m for m in modelos if m in ('modelo0', 'modelo3')]
+    modelos = [m for m in modelos if m in ('modelo0','modelo1','modelo2', 'modelo3')]
 
     metrica_dict = {}
     input_files = sorted(glob.glob(os.path.join(input_path, '*.txt')))
@@ -100,7 +99,7 @@ def main():
             nombre_archivo = os.path.basename(input_file)
             W, S, LB, UB = leer_input(input_file)
             solver = Columns(W, S, LB, UB)
-            resultado = solver.Opt_ExplorarCantidadPasillos(threshold)
+            resultado = solver.Opt_ExplorarCantidadPasillos(threshold/4)
             if resultado is None:
                 print(f"⚠️ Atención: resultado None para {modelo} - {nombre_archivo}, se asignan valores por defecto")
                 resultado = {}

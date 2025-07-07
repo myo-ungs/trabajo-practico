@@ -18,33 +18,46 @@ class Columns(ColumnsBase):
         self.inactive_counter = {}
         self.iteracion_actual = {}
 
-
-    def eliminar_columnas_inactivas(self, modelo_relajado, k, umbral_iteraciones=5):
+    def actualizar_historial_inactividad(self, modelo_relajado, k, iteraciones_realizadas, umbral_iteraciones=5):
         columnas_activas = self.columnas[k]
-        nuevas_columnas = []
-        nuevas_vars = []
-        eliminadas = 0
 
         for idx, x in enumerate(modelo_relajado.getVars()):
-            key = (k, idx)
+            columna_id = id(columnas_activas[idx])
+            key = (k, columna_id)
             val = x.getLPSol() if x.getLPSol() is not None else 0
 
-            if val < 1e-5:
-                self.inactive_counter[key] = self.inactive_counter.get(key, 0) + 1
-            else:
-                self.inactive_counter[key] = 0
+            if key not in self.inactive_counter:
+                self.inactive_counter[key] = []
 
-            # Si la columna estuvo inactiva más de 5 iteraciones, eliminarla
-            if self.inactive_counter[key] < umbral_iteraciones:
-                nuevas_columnas.append(columnas_activas[idx])
-                nuevas_vars.append(x)
-            else:
-                eliminadas += 1
+            self.inactive_counter[key].append(1 if val < 1e-5 else 0)
+
+            if len(self.inactive_counter[key]) > umbral_iteraciones:
+                self.inactive_counter[key].pop(0)
+
+    def eliminar_columnas_inactivas(self, k, iteraciones_realizadas, umbral_iteraciones=5, max_eliminar=None):
+        columnas_activas = self.columnas[k]
+        nuevas_columnas = []
+        eliminadas = 0
+
+        for idx, col in enumerate(columnas_activas):
+            columna_id = id(col)
+            key = (k, columna_id)
+
+            historial = self.inactive_counter.get(key, [])
+            n = min(iteraciones_realizadas, umbral_iteraciones)
+
+            # Eliminar solo si estuvo inactiva en todas las últimas n iteraciones
+            if len(historial) >= n and all(v == 1 for v in historial[-n:]):
+                if max_eliminar is None or eliminadas < max_eliminar:
+                    eliminadas += 1
+                    continue  # No agregar esta columna
+            nuevas_columnas.append(col)
 
         if eliminadas > 0:
-            print(f"🗑️ Eliminadas {eliminadas} columnas inactivas en k={k}")
+            print(f"🗑️ Eliminadas {eliminadas} columnas inactivas en k={k} tras {iteraciones_realizadas} iteraciones")
 
         self.columnas[k] = nuevas_columnas
+
 
     def Opt_cantidadPasillosFija(self, k, umbral):
         tiempo_ini = time.time()
@@ -109,12 +122,11 @@ class Columns(ColumnsBase):
 
             # 🔁 Contador de iteraciones por k
             self.iteracion_actual[k] = self.iteracion_actual.get(k, 0) + 1
-
-            # 🔧 Eliminar columnas inactivas
-            self.eliminar_columnas_inactivas(maestro_relajado, k, umbral_iteraciones=5)
+            iter_k = self.iteracion_actual[k]
+            # Actualizo el historial de inactividad
+            self.actualizar_historial_inactividad(maestro_relajado, k, iteraciones_realizadas=iter_k, umbral_iteraciones=5)
 
             print("❤️ Cantidad de columnas despues de eliminar y antes de agregar:", len(self.columnas[k]))
-
 
             # Subproblema que busca una columna mejoradora
             nueva_col = self.resolver_subproblema(self.W, self.S, pi, self.UB, k, tiempo_restante_total)
@@ -127,6 +139,11 @@ class Columns(ColumnsBase):
             print("➕ Columna nueva encontrada, se agrega.")
             self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k)
             print("💙 Cantidad de columnas después de agregar:", len(self.columnas[k]))
+        
+        # Después de salir del bucle, eliminar columnas inactivas
+        iteraciones_realizadas = self.iteracion_actual.get(k, 0)
+        if iteraciones_realizadas >= 5:
+            self.eliminar_columnas_inactivas(k, iteraciones_realizadas=iteraciones_realizadas, umbral_iteraciones=5, max_eliminar=5)
 
         return mejor_sol
     
