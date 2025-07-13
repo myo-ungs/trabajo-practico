@@ -82,7 +82,7 @@ def main():
 
     metrica_dict = {}
     input_files = sorted(glob.glob(os.path.join(input_path, '*.txt')))
-    input_files = input_files[:2]  # las primeras 4 del dataset A
+    input_files = input_files[:4]  # las primeras 4 del dataset A
 
     print("Modelos detectados:", modelos)
     print("Archivos de input:", [os.path.basename(f) for f in input_files])

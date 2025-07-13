@@ -1,11 +1,21 @@
 Instancia;Métrica;Sección 5;Col. iniciales;Rankear;Eliminar col.
-instance_0001.txt;Restricciones;219;218;219;219
+instance_0001.txt;Restricciones;335;334;335;335
 ;# variables inicial;116;23;116;116
-;# variables en últ. maestro;126;33;118;121
-;Mejor objetivo;51.0;51.0;51.0;51.0
-;Tiempo;168.69;160.82;150.59;170.58
-instance_0002.txt;Restricciones;21;21;21;21
+;# variables en últ. maestro;122;29;117;117
+;Mejor objetivo;8.0;8.0;8.0;8.0
+;Tiempo;150.66;29.0;97.47;150.37
+instance_0002.txt;Restricciones;54;54;54;54
 ;# variables inicial;33;32;33;33
 ;# variables en últ. maestro;34;33;34;34
 ;Mejor objetivo;2.0;2.0;2.0;2.0
-;Tiempo;1.6;1.35;1.3;1.54
+;Tiempo;1.13;0.82;0.65;0.65
+instance_0003.txt;Restricciones;454;454;454;454
+;# variables inicial;124;19;100;124
+;# variables en últ. maestro;128;23;101;123
+;Mejor objetivo;7.2;12.0;12.0;9.5
+;Tiempo;152.4;37.64;115.53;152.11
+instance_0004.txt;Restricciones;174;0;174;174
+;# variables inicial;91;0;91;91
+;# variables en últ. maestro;91;0;91;91
+;Mejor objetivo;0.0;0;0.0;0.0
+;Tiempo;8.35;2.39;6.53;6.95
