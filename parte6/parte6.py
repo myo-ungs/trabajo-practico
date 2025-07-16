@@ -18,27 +18,29 @@ def leer_config(cfg_path):
 
 
 def escribir_csv(metrica_dict, csv_path, modelos):
-    with open(csv_path, 'w', newline='', encoding='cp1252') as f:
-        writer = csv.writer(f, delimiter=';')
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter=',')
         writer.writerow(["Instancia", "Métrica", "Sección 5", "Col. iniciales", "Rankear", "Eliminar col."])
+
         metricas = [
             ("Restricciones", 'restricciones'),
             ("# variables inicial", 'variables'),
             ("# variables en últ. maestro", 'variables_final'),
-           # ("Cota dual", 'cota_dual'),
+            # ("Cota dual", 'cota_dual'),
             ("Mejor objetivo", 'mejor_objetivo'),
             ("Tiempo", "tiempo_total")
         ]
+
         modelo_a_columna = {
             'modelo0': 2,
             'modelo1': 3,
             'modelo2': 4,
             'modelo3': 5,
         }
+
         for instancia, modelos_metricas in metrica_dict.items():
-            first = True
             for nombre_metrica, clave in metricas:
-                row = [instancia if first else '', nombre_metrica, '', '', '', '']
+                row = [instancia, nombre_metrica, '', '', '', '']
                 for modelo in modelos:
                     m = modelos_metricas.get(modelo, {})
                     valor = m.get(clave, '')
@@ -46,8 +48,6 @@ def escribir_csv(metrica_dict, csv_path, modelos):
                     if col_idx is not None:
                         row[col_idx] = valor
                 writer.writerow(row)
-                first = False
-
 
 def main():
     if len(sys.argv) < 2:
@@ -115,7 +115,6 @@ def main():
                 'variables_final': resultado.get('variables_final', 0),
                 'tiempo_total' : resultado.get('tiempo_total',0)
             }
-
 
             if nombre_archivo not in metrica_dict:
                 metrica_dict[nombre_archivo] = {}
