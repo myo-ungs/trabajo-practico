@@ -3,7 +3,6 @@ import sys
 import csv
 import importlib.util
 import glob
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 
@@ -52,8 +51,9 @@ def escribir_csv(metrica_dict, csv_path, modelos):
 def main():
     if len(sys.argv) < 2:
         print("Uso: python parte6.py archivo.cfg")
-        sys.exit(1)
-    cfg_path = sys.argv[1]
+        cfg_path = "parte6/experimento.cfg"
+    else:
+        cfg_path = sys.argv[1]
 
     config = leer_config(cfg_path)
 
@@ -79,6 +79,7 @@ def main():
             out_paths[f"modelo{idx}"] = os.path.join(parte6_dir, v)
 
     modelos = [m for m in modelos if m in ('modelo0','modelo1','modelo2', 'modelo3')]
+    cant_de_modelos = len(modelos) # para dividir el tiempo segun la cantidad
 
     metrica_dict = {}
     input_files = sorted(glob.glob(os.path.join(input_path, '*.txt')))
@@ -99,7 +100,7 @@ def main():
             nombre_archivo = os.path.basename(input_file)
             W, S, LB, UB = leer_input(input_file)
             solver = Columns(W, S, LB, UB)
-            resultado = solver.Opt_ExplorarCantidadPasillos(threshold/4)
+            resultado = solver.Opt_ExplorarCantidadPasillos(threshold/cant_de_modelos)
             if resultado is None:
                 print(f"⚠️ Atención: resultado None para {modelo} - {nombre_archivo}, se asignan valores por defecto")
                 resultado = {}
