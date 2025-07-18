@@ -1,21 +1,21 @@
-Instancia,Métrica,Sección 5,Col. iniciales,Rankear,Eliminar col.
-instance_0001.txt,Restricciones,335,334,335,335
-instance_0001.txt,# variables inicial,116,23,116,116
-instance_0001.txt,# variables en últ. maestro,122,29,117,117
-instance_0001.txt,Mejor objetivo,8.0,8.0,8.0,8.0
-instance_0001.txt,Tiempo,150.4,24.62,94.03,151.69
-instance_0002.txt,Restricciones,54,54,54,54
-instance_0002.txt,# variables inicial,33,32,33,33
-instance_0002.txt,# variables en últ. maestro,34,33,34,34
-instance_0002.txt,Mejor objetivo,2.0,2.0,2.0,2.0
-instance_0002.txt,Tiempo,0.67,0.69,0.62,0.7
-instance_0003.txt,Restricciones,454,454,454,454
-instance_0003.txt,# variables inicial,124,19,101,124
-instance_0003.txt,# variables en últ. maestro,128,23,102,123
-instance_0003.txt,Mejor objetivo,9.5,12.0,12.0,9.5
-instance_0003.txt,Tiempo,150.46,30.86,113.79,151.58
-instance_0004.txt,Restricciones,174,0,174,174
-instance_0004.txt,# variables inicial,91,0,91,91
-instance_0004.txt,# variables en últ. maestro,91,0,91,91
-instance_0004.txt,Mejor objetivo,0.0,0,0.0,0.0
-instance_0004.txt,Tiempo,6.84,1.78,6.63,6.79
+Instancia;Métrica;modelo0;modelo1;modelo2;modelo3
+a_instance_0001.txt;Restricciones;335;334;335;335
+;# variables inicial;116;23;116;116
+;# variables en últ. maestro;122;29;117;117
+;Mejor objetivo;8.0;8.0;8.0;8.0
+;Tiempo (s);150.81;25.92;94.43;151.28
+a_instance_0002.txt;Restricciones;54;54;54;54
+;# variables inicial;33;32;33;33
+;# variables en últ. maestro;34;33;34;34
+;Mejor objetivo;2.0;2.0;2.0;2.0
+;Tiempo (s);0.7;0.7;0.61;0.64
+a_instance_0003.txt;Restricciones;454;454;454;454
+;# variables inicial;124;19;95;124
+;# variables en últ. maestro;128;23;96;123
+;Mejor objetivo;9.5;12.0;12.0;9.5
+;Tiempo (s);152.13;32.24;113.72;152.33
+a_instance_0004.txt;Restricciones;174;0;174;174
+;# variables inicial;91;0;91;91
+;# variables en últ. maestro;91;0;91;91
+;Mejor objetivo;0.0;0;0.0;0.0
+;Tiempo (s);7.29;2.06;6.74;6.87
