@@ -100,25 +100,17 @@ class Columns:
             name="restr_total_ub"
         )
 
-        # restr_lb = modelo.addCons(
-        #     quicksum(x_vars[j] * self.columnas[k][j]['unidades'] for j in range(len(x_vars))) >= self.UB,
-        #     name="restr_total_lb"
-        # )
-
-        # Restricciones de cobertura por ítem
-        restr_cov = {}
-        for i in range(self.I):
+        # No se pueden seleccionar dos columnas del mismo pasillo
+        restr_pasillos = {}
+        for a in range(self.A):
             cons = modelo.addCons(
                 quicksum(
-                    x_vars[j] * sum(self.W[o][i] for o in range(self.O) if self.columnas[k][j]['ordenes'][o])
-                    for j in range(len(x_vars))
-                ) <= quicksum(
-                    x_vars[j] * self.S[self.columnas[k][j]['pasillo']][i]
-                    for j in range(len(x_vars))
-                ),
-                name=f"cobertura_item_{i}"
+                    x_vars[j] for j in range(len(x_vars)) 
+                    if self.columnas[k][j]['pasillo'] == a
+                ) <= 1,
+                name=f"pasillo_{a}"
             )
-            restr_cov[i] = cons
+            restr_pasillos[a] = cons
 
         for a in range(self.A):
             modelo.addCons(
@@ -141,7 +133,7 @@ class Columns:
             sense="maximize"
         )
 
-        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov
+        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos
 
     def resolver_subproblema(self, W, S, pi, UB, k, umbral=None):
         tiempo_ini = time.time()
@@ -183,21 +175,6 @@ class Columns:
                 quicksum(S[a][i] * y[a] for a in range(A)),
                 name=f"capacidad_item_{i}"
             )
-
-        # Restricción: límite superior de unidades totales
-        modelo.addCons(quicksum(units_o[o] * z[o] for o in range(O)) <= UB, name="limite_unidades")
-
-        # Al menos una orden debe ser seleccionada
-        modelo.addCons(quicksum(z[o] for o in range(O)) >= 1, name="min_una_orden")
-
-        # Evitar columnas repetidas (de todas las columnas previas)
-        for k_col in self.columnas.get(k, []):
-            mismos = [o for o in range(O) if k_col['ordenes'][o] == 1]
-            if mismos:
-                modelo.addCons(
-                    quicksum(z[o] for o in mismos) <= len(mismos) - 1,
-                    name=f"evitar_repetida_{k_col['pasillo']}"
-                )
 
         # Calcular costo reducido por orden, independiente del pasillo porque la cobertura está condicionada a y
         price_o = []
@@ -293,7 +270,7 @@ class Columns:
             print(f"⌛ Iteración con {len(self.columnas.get(k, []))} columnas")
 
             # Construcción del modelo maestro con las columnas actuales
-            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov = self.construir_modelo_maestro(k, tiempo_restante_total)
+            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos = self.construir_modelo_maestro(k, tiempo_restante_total)
 
             # Crear una copia para relajación y obtención de duales
             maestro_relajado = Model(sourceModel=maestro)
@@ -339,7 +316,7 @@ class Columns:
             print("➕ Agregando columna nueva al modelo maestro.")
 
             # Agregar la nueva columna al modelo maestro
-            self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k)
+            self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos, k)
 
             # print("💙 Cantidad de columnas después de agregar:", len(self.columnas.get(k, [])))
 

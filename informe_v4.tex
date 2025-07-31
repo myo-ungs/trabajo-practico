@@ -1,0 +1,852 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{amsfonts}
+\usepackage{enumitem}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Optimización de Picking},
+    pdfpagemode=FullScreen,
+}
+\usepackage{tocloft}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{tabularx} 
+
+\renewcommand{\cfttoctitlefont}{\centering\Huge\bfseries}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsecpagefont}{\bfseries}
+\setlength{\cftbeforesecskip}{8pt}
+\setlength{\headheight}{15pt}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+
+\makeatletter
+\let\old@tocline\@tocline
+\def\@tocline#1#2#3#4#5#6#7{%
+  \old@tocline{#1}{#2}{#3}{#4}{#5}{#6}{\textcolor{black}{#7}}%
+}
+\makeatother
+
+\setcounter{section}{-1}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\SetKwInput{KwData}{Datos}
+\SetKwInput{KwResult}{Resultado}
+\SetKwComment{Comment}{$\triangleright$\ }{}
+\SetKwProg{Proc}{Procedure}{:}{end}
+
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{0.9in}
+    
+    % Título del informe
+    {\Huge \bfseries Informe de Entrega Final\par}
+    \vspace{0.3in}
+    
+    \vspace{1in}
+    
+    % Universidad y materia
+    {\LARGE \bfseries Universidad Nacional General Sarmiento \par}
+    \vspace{0.3in}
+    {\Large \textit{Modelado y Optimización} \par}
+    \vspace{1in}
+    {\Large \bfseries Profesor: \par}
+    \vspace{0.3in}
+    {\Large Marcelo Mydlarz \par}
+
+    \vspace{0.6in}
+    
+    % Integrantes
+    {\Large \bfseries Integrantes: \par}
+    \vspace{0.3in}
+    {\Large Juan Manuel Losada \par}
+    \vspace{0.1in}
+    {\Large Facundo Ruiz \par}
+    \vspace{0.1in}
+    {\Large Matías Morales \par}
+    \vspace{0.1in}
+    {\Large Vanesa Vera \par}
+
+    \vspace{1in}
+    
+    
+\end{titlepage}
+
+% Configuración de encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Modelado y Optimización}
+\rhead{\thepage}
+\cfoot{}
+
+% Definición de entornos
+\newtheorem{theorem}{Teorema}
+\newtheorem{lemma}{Lema}
+\newtheorem{definition}{Definición}
+\newtheorem{problem}{Problema}
+
+% Configuración de listings
+\lstdefinestyle{PythonStyle}{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!60!black}\itshape,
+  stringstyle=\color{red!80!black},
+  numberstyle=\tiny\color{gray},
+  showstringspaces=false,
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=true,
+  numbers=left,
+  frame=tb,
+  framesep=5pt,
+  framexleftmargin=2pt,
+  captionpos=b,
+  extendedchars=true,
+  inputencoding=utf8,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1 {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+}
+\lstset{style=PythonStyle}
+
+\thispagestyle{empty}
+\clearpage
+
+\tableofcontents
+\clearpage
+
+%====================================================================
+\section{Introducción}
+%====================================================================
+En este informe se presentan los resultados obtenidos tras la resolución de los problemas planteados en el Trabajo Práctico de Modelado y Optimización. El análisis se centra en las partes 4 a 7, que abordan la resolución integral del problema denominado \textit{El Desafío} mediante diferentes enfoques de optimización.
+
+El problema central consiste en la optimización de procesos de picking en centros de distribución, donde se debe seleccionar un conjunto de pasillos y órdenes que maximice la productividad del proceso de recolección, respetando restricciones de capacidad y límites operacionales.
+
+\subsection*{Descripción general del problema}
+
+El \textit{Desafío} aborda la selección óptima de pasillos y órdenes en un almacén para maximizar la eficiencia del proceso de picking. Los elementos clave del problema incluyen:
+
+\begin{itemize}
+    \item \textbf{Órdenes ($O$):} Conjunto de pedidos que requieren elementos específicos en cantidades determinadas.
+    \item \textbf{Elementos ($I$):} Productos almacenados que pueden ser requeridos por las órdenes.
+    \item \textbf{Pasillos ($A$):} Ubicaciones físicas donde están disponibles los elementos con capacidades limitadas.
+    \item \textbf{Límites operacionales:} Restricciones de límite inferior (LB) y superior (UB) para la cantidad total de unidades a recolectar.
+\end{itemize}
+
+\subsection*{Enfoques implementados}
+
+\begin{itemize}
+    \item \textbf{Parte 4:} Implementación de un solucionador básico con exploración sistemática de diferentes cantidades de pasillos.
+    \item \textbf{Parte 5:} Extensión mediante generación de columnas para manejar instancias de mayor escala.
+    \item \textbf{Parte 6:} Evaluación de mejoras específicas al modelo de generación de columnas.
+    \item \textbf{Parte 7:} Implementación de enfoques híbridos y heurísticos para instancias complejas.
+\end{itemize}
+
+\clearpage
+
+%====================================================================
+\section{Parte 4}
+%====================================================================
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+        \item \textbf{Descripción del problema que resuelve cada modelo.}
+
+            En esta etapa se implementa la clase \texttt{Basic} que resuelve el problema \textit{Desafío} mediante un enfoque de fuerza bruta inteligente. El modelo explora sistemáticamente diferentes cantidades de pasillos $k$ y utiliza reutilización de modelos para mejorar la eficiencia computacional.
+
+            La clase implementa tres métodos principales:
+            \begin{itemize}
+                \item \texttt{Opt\_cantidadPasillosFija(k, umbral)}: Resuelve el problema para exactamente $k$ pasillos dentro del tiempo límite especificado.
+                \item \texttt{Opt\_PasillosFijos(umbral)}: Optimiza la selección de órdenes para un conjunto fijo de pasillos previamente determinado.
+                \item \texttt{Opt\_ExplorarCantidadPasillos(umbral)}: Estrategia integral que explora múltiples valores de $k$ basándose en un ranking heurístico.
+            \end{itemize}
+
+            El enfoque utiliza un modelo maestro reutilizable que se adapta para diferentes valores de $k$ modificando únicamente la restricción de cardinalidad, evitando la recreación completa del modelo en cada iteración.
+
+        \item \textbf{Definición de variables utilizadas.}
+
+            \begin{itemize}
+                \item $x_a \in \{0,1\}$: variable binaria que indica si el pasillo $a$ es seleccionado.
+                \item $y_o \in \{0,1\}$: variable binaria que indica si la orden $o$ es seleccionada.
+                \item $W_{o,i}$: cantidad del elemento $i$ requerida por la orden $o$.
+                \item $S_{a,i}$: capacidad del elemento $i$ disponible en el pasillo $a$.
+                \item $k$: número fijo de pasillos a seleccionar.
+                \item $LB, UB$: límites inferior y superior de unidades totales a recolectar.
+            \end{itemize}
+
+        \item \textbf{Modelo matemático completo.}
+
+            El modelo básico para un valor fijo de $k$ se formula como:
+
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{o \in O} \sum_{i \in I} W_{o,i} \cdot y_o \\
+            \text{s.t.} \quad
+            & LB \leq \sum_{o \in O} \sum_{i \in I} W_{o,i} \cdot y_o \leq UB \\
+            & \sum_{o \in O} W_{o,i} \cdot y_o \leq \sum_{a \in A} S_{a,i} \cdot x_a \quad \forall i \in I \\
+            & \sum_{a \in A} x_a = k \\
+            & x_a, y_o \in \{0,1\} \quad \forall a \in A, o \in O
+            \end{aligned}
+            \]
+
+        \item \textbf{Explicación de la función objetivo y las restricciones.}
+
+            \begin{itemize}
+                \item \textbf{Función objetivo:} Maximiza la cantidad total de elementos recolectados de todas las órdenes seleccionadas.
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item \textbf{Límites operacionales:} La cantidad total recolectada debe estar dentro del rango $[LB, UB]$.
+                    \item \textbf{Capacidad:} Para cada elemento $i$, la demanda total no puede exceder la capacidad disponible en los pasillos seleccionados.
+                    \item \textbf{Cardinalidad:} Se seleccionan exactamente $k$ pasillos.
+                    \item \textbf{Binaridad:} Las variables representan decisiones discretas de selección.
+                \end{itemize}
+            \end{itemize}
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+
+    \begin{algorithm}[H]
+    \KwData{umbral\_total (tiempo límite total)}
+    \KwResult{Mejor solución encontrada}
+    
+    Inicializar $tiempo\_inicio$ ← tiempo actual\;
+    Inicializar $mejor\_valor$ ← $-\infty$\;
+    Inicializar $mejor\_solucion$ ← $\emptyset$\;
+    Crear $ranking\_k$ ← Rankear() \tcp*{Lista ordenada de valores k prometedores}
+    
+    \ForEach{$k$ en $ranking\_k$}{
+        $tiempo\_restante$ ← $umbral\_total - (tiempo\_actual - tiempo\_inicio)$\;
+        
+        \If{$tiempo\_restante \leq 0$}{
+            \textbf{break} \tcp*{Tiempo agotado}
+        }
+        
+        $modelo\_k$ ← modelo\_para\_k($k$) \tcp*{Reutilizar modelo maestro}
+        $solucion\_k$ ← resolver($modelo\_k$, $tiempo\_restante$)\;
+        
+        \If{$solucion\_k$ es válida \textbf{y} $solucion\_k.valor > mejor\_valor$}{
+            $mejor\_valor$ ← $solucion\_k.valor$\;
+            $mejor\_solucion$ ← $solucion\_k$\;
+        }
+    }
+    
+    \tcp{Etapa de refinamiento}
+    $tiempo\_restante$ ← $umbral\_total - (tiempo\_actual - tiempo\_inicio)$\;
+    
+    \If{$tiempo\_restante > 0$ \textbf{y} $mejor\_solucion \neq \emptyset$}{
+        $pasillos\_fijos$ ← $mejor\_solucion.pasillos$\;
+        $solucion\_refinada$ ← Opt\_PasillosFijos($tiempo\_restante$)\;
+        
+        \If{$solucion\_refinada.valor > mejor\_valor$}{
+            $mejor\_solucion$ ← $solucion\_refinada$\;
+        }
+    }
+    
+    \Return $mejor\_solucion$\;
+    
+    \caption{Algoritmo de exploración básica (Parte 4)}
+    \end{algorithm}
+
+    \item \textbf{Detalles de implementación relevantes:}
+    
+    \begin{itemize}
+        \item \textbf{Reutilización de modelos:} Se construye un modelo maestro una vez y se modifica dinámicamente la restricción de cardinalidad para diferentes valores de $k$.
+        \item \textbf{Función Rankear:} Implementa una heurística simple que ordena los valores de $k$ de 1 a $n\_pasillos$.
+        \item \textbf{Gestión de tiempo:} Control estricto del tiempo asignado con distribución proporcional entre diferentes valores de $k$.
+        \item \textbf{Solver utilizado:} SCIP via PySCIPOpt con configuración optimizada para problemas de programación entera mixta.
+    \end{itemize}
+
+\end{enumerate}
+
+\clearpage
+
+%====================================================================
+\section{Parte 5}
+%====================================================================
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+    
+        \item \textbf{Descripción del problema que resuelve cada modelo.}
+        
+            En esta etapa se implementa la clase \texttt{Columns} que resuelve el problema \textit{Desafío} mediante generación de columnas. Este enfoque es especialmente eficaz para instancias grandes donde el número de patrones factibles (combinaciones pasillo-órdenes) es exponencial.
+
+            El algoritmo se basa en dos modelos complementarios:
+            \begin{itemize}
+                \item \textbf{Modelo Maestro Restringido (RMP):} Optimiza la selección de columnas desde un conjunto limitado de patrones conocidos.
+                \item \textbf{Subproblema de Pricing:} Genera nuevas columnas (patrones) con costo reducido positivo basándose en los valores duales del RMP.
+            \end{itemize}
+
+            \textbf{Correcciones implementadas según feedback del profesor:}
+            \begin{itemize}
+                \item Eliminación de la restricción de "cobertura por ítem" del modelo maestro.
+                \item Adición de restricciones para evitar seleccionar múltiples columnas del mismo pasillo.
+                \item Eliminación de restricciones artificiales en el subproblema (restricciones 4 y 5).
+            \end{itemize}
+
+        \item \textbf{Definición de variables utilizadas.}
+
+            \textbf{Modelo Maestro:}
+            \begin{itemize}
+                \item $x_j \in \{0,1\}$: variable binaria que indica si la columna $j$ es seleccionada.
+                \item $ordenes_{j,o} \in \{0,1\}$: parámetro que indica si la orden $o$ está incluida en la columna $j$.
+                \item $pasillo_j$: pasillo asociado a la columna $j$.
+                \item $unidades_j$: total de unidades que aporta la columna $j$.
+            \end{itemize}
+
+            \textbf{Subproblema:}
+            \begin{itemize}
+                \item $z_o \in \{0,1\}$: variable binaria que indica si la orden $o$ se incluye en la nueva columna.
+                \item $y_a \in \{0,1\}$: variable binaria que indica si el pasillo $a$ se selecciona para la nueva columna.
+                \item $\pi_k, \alpha_o, \lambda, \beta_a$: valores duales del modelo maestro.
+            \end{itemize}
+
+        \item \textbf{Modelo matemático completo.}
+
+            \textbf{Modelo Maestro Restringido:}
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{j \in J} x_j \cdot unidades_j \\
+            \text{s.t.} \quad
+            & \sum_{j \in J} x_j = k \quad \text{(Cardinalidad)} \\
+            & \sum_{j \in J} ordenes_{j,o} \cdot x_j \leq 1 \quad \forall o \in O \quad \text{(Cobertura única)} \\
+            & \sum_{j \in J} unidades_j \cdot x_j \leq UB \quad \text{(Límite superior)} \\
+            & \sum_{j \in J: pasillo_j = a} x_j \leq 1 \quad \forall a \in A \quad \text{(Pasillos únicos)} \\
+            & x_j \in \{0,1\} \quad \forall j \in J
+            \end{aligned}
+            \]
+
+            \textbf{Subproblema de Pricing:}
+            \[
+            \begin{aligned}
+            \max \quad & \sum_{o \in O} \left(u_o - \sum_{i \in I} \pi_i W_{o,i} - \lambda u_o - \alpha_o\right) z_o - \gamma_k \sum_{a \in A} y_a \\
+            \text{s.t.} \quad
+            & \sum_{a \in A} y_a = 1 \quad \text{(Un pasillo)} \\
+            & \sum_{o \in O} W_{o,i} z_o \leq \sum_{a \in A} S_{a,i} y_a \quad \forall i \in I \quad \text{(Capacidad)} \\
+            & z_o, y_a \in \{0,1\} \quad \forall o \in O, a \in A
+            \end{aligned}
+            \]
+
+        \item \textbf{Explicación de la función objetivo y las restricciones.}
+
+            \textbf{Modelo Maestro:}
+            \begin{itemize}
+                \item \textbf{Función objetivo:} Maximiza el total de unidades recolectadas por las columnas seleccionadas.
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item Seleccionar exactamente $k$ columnas/pasillos.
+                    \item Cada orden cubierta por máximo una columna.
+                    \item No exceder el límite superior de unidades.
+                    \item No seleccionar múltiples columnas del mismo pasillo (NUEVA).
+                \end{itemize}
+            \end{itemize}
+
+            \textbf{Subproblema:}
+            \begin{itemize}
+                \item \textbf{Función objetivo:} Maximiza el costo reducido de la nueva columna considerando los valores duales.
+                \item \textbf{Restricciones:}
+                \begin{itemize}
+                    \item Seleccionar exactamente un pasillo para la nueva columna.
+                    \item Respetar la capacidad disponible de cada elemento en el pasillo seleccionado.
+                    \item Variables binarias para decisiones discretas.
+                \end{itemize}
+            \end{itemize}
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+
+    \begin{algorithm}[H]
+    \KwData{k (número de pasillos), umbral (tiempo límite)}
+    \KwResult{Solución óptima para k pasillos}
+    
+    Inicializar columnas iniciales: una por pasillo\;
+    
+    \While{tiempo\_restante > 0}{
+        \tcp{Resolver modelo maestro}
+        $modelo\_maestro$ ← construir\_RMP(columnas\_actuales, k)\;
+        $solucion\_maestro$ ← resolver($modelo\_maestro$)\;
+        
+        \If{modelo\_maestro no es óptimo}{
+            \textbf{break}\;
+        }
+        
+        \tcp{Extraer valores duales}
+        $duales$ ← extraer\_duales($modelo\_maestro$)\;
+        
+        \tcp{Resolver subproblema de pricing}
+        $nueva\_columna$ ← resolver\_subproblema($duales$)\;
+        
+        \If{costo\_reducido $\leq 0$}{
+            \tcp{Convergencia alcanzada}
+            \textbf{break}\;
+        }
+        
+        \tcp{Agregar nueva columna al modelo maestro}
+        agregar\_columna($nueva\_columna$)\;
+        
+        \tcp{Verificar si es columna repetida (indicaría error)}
+        \If{$nueva\_columna$ es repetida}{
+            imprimir("[ADVERTENCIA] Columna repetida generada")\;
+            \textbf{break}\;
+        }
+    }
+    \Return solucion\_final\;
+    
+    \caption{Algoritmo de generación de columnas (Parte 5)}
+    \end{algorithm}
+
+    \item \textbf{Detalles de implementación relevantes:}
+    
+    \begin{itemize}
+        \item \textbf{Columnas iniciales:} Se genera una columna por pasillo, cada una conteniendo las órdenes factibles para ese pasillo específico.
+        \item \textbf{Detección de convergencia:} El algoritmo termina cuando el costo reducido del subproblema es $\leq 0$ o se agota el tiempo.
+        \item \textbf{Gestión de duales:} Extracción automática de valores duales: cardinalidad, órdenes, límite UB y pasillos únicos.
+        \item \textbf{Restricciones eliminadas:} Ya no se incluyen restricciones de límite UB ni "al menos una orden" en el subproblema, según corrección del profesor.
+    \end{itemize}
+
+\end{enumerate}
+
+\clearpage
+
+%====================================================================
+\section{Parte 6}
+%====================================================================
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+    
+        \item \textbf{Descripción del problema que resuelve cada modelo.}
+        
+            En esta etapa se evalúan mejoras específicas al modelo de generación de columnas de la Parte 5. Se mantiene la estructura fundamental del algoritmo pero se implementan tres variantes independientes para optimizar diferentes aspectos:
+
+            \begin{enumerate}[label=\arabic*.]
+                \item \textbf{Columnas iniciales eficientes:} Mejora la inicialización seleccionando pasillos con mayor capacidad total en lugar de usar todos los pasillos.
+                \item \textbf{Función Rankear mejorada:} Utiliza clustering (KMeans) para agrupar pasillos por capacidad y priorizar valores de $k$ más prometedores.
+                \item \textbf{Eliminación de columnas inactivas:} Remueve periódicamente columnas no utilizadas para reducir el tamaño del modelo maestro.
+            \end{enumerate}
+
+            Cada variante se evalúa por separado contra el modelo base para determinar su impacto individual en el rendimiento.
+
+        \item \textbf{Definición de variables utilizadas.}
+
+            Las variables del modelo son idénticas a la Parte 5. Las mejoras se centran en la gestión del conjunto de columnas $J$ y la estrategia de exploración:
+
+            \begin{itemize}
+                \item $x_j \in \{0,1\}$: selección de columna $j$.
+                \item $J_{activo} \subseteq J$: subconjunto de columnas activas (para variante 3).
+                \item $capacidad\_total_a$: métrica de capacidad para el pasillo $a$ (para variantes 1 y 2).
+                \item $k_{prometedores}$: valores de $k$ priorizados por clustering (para variante 2).
+            \end{itemize}
+
+        \item \textbf{Modelo matemático completo.}
+
+            El modelo matemático base es idéntico al de la Parte 5. Las mejoras modifican:
+
+            \textbf{Variante 1 - Columnas iniciales eficientes:}
+            \[
+            J_{inicial} = \{j : pasillo_j \in top\_pasillos\_por\_capacidad\}
+            \]
+
+            \textbf{Variante 2 - Rankear mejorado:}
+            \[
+            k_{ranking} = clustering\_kmeans(capacidades\_pasillos, n\_clusters)
+            \]
+
+            \textbf{Variante 3 - Eliminación de columnas:}
+            \[
+            J_{t+1} = J_t \setminus \{j : x_j = 0 \text{ en últimas } n \text{ iteraciones}\}
+            \]
+
+        \item \textbf{Explicación de la función objetivo y las restricciones.}
+
+            La función objetivo y restricciones son idénticas a la Parte 5. Las mejoras impactan en:
+            \begin{itemize}
+                \item \textbf{Eficiencia computacional:} Reducción del tamaño del modelo maestro.
+                \item \textbf{Calidad de inicialización:} Mejor punto de partida para el algoritmo.
+                \item \textbf{Estrategia de exploración:} Priorización inteligente de valores de $k$.
+            \end{itemize}
+
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+
+    \begin{algorithm}[H]
+    \KwData{Configuración de mejoras activadas}
+    \KwResult{Comparación de métricas entre variantes}
+    
+    \ForEach{instancia en conjunto\_pruebas}{
+        \ForEach{variante en [Base, Mejora1, Mejora2, Mejora3]}{
+            
+            \If{variante == Mejora1}{
+                columnas\_iniciales ← seleccionar\_mejores\_pasillos()\;
+            }
+            \ElseIf{variante == Mejora2}{
+                ranking\_k ← clustering\_capacidades()\;
+            }
+            \ElseIf{variante == Mejora3}{
+                activar\_eliminacion\_columnas()\;
+            }
+            
+            resultado ← ejecutar\_generacion\_columnas()\;
+            metricas[instancia][variante] ← extraer\_metricas(resultado)\;
+        }
+    }
+    
+    generar\_tabla\_comparativa(metricas)\;
+    
+    \caption{Framework de evaluación de mejoras (Parte 6)}
+    \end{algorithm}
+
+    \item \textbf{Detalles de implementación relevantes:}
+    
+    \begin{itemize}
+        \item \textbf{Selección de pasillos:} Se ordenan por capacidad total y se seleccionan los top-k para inicialización.
+        \item \textbf{Clustering KMeans:} Agrupa pasillos en clusters por capacidad para guiar la exploración de valores k.
+        \item \textbf{Eliminación adaptativa:} Remueve columnas no utilizadas cada 5 iteraciones para mantener el modelo compacto.
+        \item \textbf{Métricas comparativas:} Se evalúan: tiempo de ejecución, número de columnas generadas, valor objetivo final, y convergencia.
+    \end{itemize}
+
+\end{enumerate}
+
+\clearpage
+
+%====================================================================
+\section{Parte 7}
+%====================================================================
+
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+    \item \textbf{Modelos matemáticos utilizados:}
+    \begin{enumerate}[label=\roman*., leftmargin=0.2em]
+    
+        \item \textbf{Descripción del problema que resuelve cada modelo.}
+        
+        En esta etapa se implementa un enfoque híbrido que combina el mejor modelo de la Parte 6 con un solucionador heurístico (\texttt{FastSolver}) para abordar instancias de diferentes escalas:
+
+        \begin{itemize}
+            \item \textbf{Instancias pequeñas/medianas:} Se utiliza el modelo exacto de generación de columnas con las mejores optimizaciones de la Parte 6.
+            \item \textbf{Instancias grandes:} Se aplica \texttt{FastSolver}, un algoritmo heurístico greedy con búsqueda local para obtener soluciones de buena calidad en tiempo limitado.
+        \end{itemize}
+
+        \textbf{FastSolver} implementa una heurística constructiva seguida de mejoramiento local:
+        \begin{enumerate}
+            \item \textbf{Fase constructiva:} Selección greedy de pasillos y órdenes basada en ratios beneficio/capacidad.
+            \item \textbf{Fase de mejora:} Búsqueda local mediante intercambio de órdenes para mejorar la solución inicial.
+        \end{enumerate}
+
+        \item \textbf{Definición de variables utilizadas.}
+
+        \textbf{Modelo exacto (Generación de columnas):}
+        Variables idénticas a las Partes 5-6.
+
+        \textbf{FastSolver (Heurístico):}
+        \begin{itemize}
+            \item $pasillos\_seleccionados$: lista de índices de pasillos elegidos.
+            \item $ordenes\_seleccionadas$: lista de índices de órdenes elegidas.
+            \item $capacidad\_disponible[i]$: capacidad restante del elemento $i$ tras selecciones.
+            \item $valor\_objetivo$: suma total de unidades recolectadas.
+            \item $ratio\_beneficio[o]$: métrica de atractivo de la orden $o$.
+        \end{itemize}
+
+        \item \textbf{Modelo matemático completo.}
+
+        \textbf{Para el modelo exacto:} Idéntico al modelo corregido de la Parte 5.
+
+        \textbf{Para FastSolver:} El algoritmo heurístico no utiliza formulación matemática explícita, sino que implementa las siguientes reglas de decisión:
+
+        \textbf{Selección de pasillos:}
+        \[
+        pasillo^* = \arg\max_{a \in A} \left\{\sum_{i \in I} S_{a,i}\right\}
+        \]
+
+        \textbf{Selección de órdenes:}
+        \[
+        orden^* = \arg\max_{o \in O_{factible}} \left\{\frac{\sum_{i \in I} W_{o,i}}{max\_capacidad\_requerida(o)}\right\}
+        \]
+
+        \textbf{Criterio de factibilidad:}
+        \[
+        O_{factible} = \{o \in O : W_{o,i} \leq capacidad\_disponible[i] \quad \forall i \in I\}
+        \]
+
+        \item \textbf{Explicación de la función objetivo y las restricciones.}
+
+        \textbf{Modelo exacto:} Idéntico a la Parte 5 con las correcciones implementadas.
+
+        \textbf{FastSolver:}
+        \begin{itemize}
+            \item \textbf{Función objetivo implícita:} Maximizar el total de unidades recolectadas mediante decisiones greedy localmente óptimas.
+            \item \textbf{Restricciones manejadas heurísticamente:}
+            \begin{itemize}
+                \item \textbf{Capacidad:} Se verifica factibilidad antes de cada selección.
+                \item \textbf{Límites LB/UB:} Se monitorean durante la construcción de la solución.
+                \item \textbf{Cardinalidad:} Se controla el número de pasillos seleccionados.
+            \end{itemize}
+        \end{itemize}
+
+    \end{enumerate}
+
+    \item \textbf{Pseudocódigo a alto nivel del algoritmo:}
+
+    \begin{algorithm}[H]
+    \KwData{Instancia del problema, umbral de tiempo}
+    \KwResult{Mejor solución encontrada}
+    
+    \tcp{Clasificación de instancia}
+    tamaño ← clasificar\_instancia(num\_ordenes, num\_pasillos)\;
+    
+    \If{tamaño == "pequeña" o tamaño == "mediana"}{
+        \tcp{Usar modelo exacto mejorado}
+        solucion ← generacion\_columnas\_mejorada(umbral)\;
+    }
+    \Else{
+        \tcp{Usar FastSolver heurístico}
+        solucion ← FastSolver(umbral)\;
+    }
+    
+    \Return solucion\;
+    
+    \BlankLine
+    
+    \Proc{FastSolver(umbral)}{
+        \tcp{Fase 1: Construcción greedy}
+        pasillos ← seleccionar\_mejores\_pasillos\_greedy()\;
+        ordenes ← []\;
+        capacidad\_restante ← calcular\_capacidad\_total(pasillos)\;
+        
+        \While{existen\_ordenes\_factibles()}{
+            orden\_mejor ← seleccionar\_orden\_mayor\_ratio()\;
+            agregar\_orden(orden\_mejor)\;
+            actualizar\_capacidad(orden\_mejor)\;
+        }
+        
+        \tcp{Fase 2: Búsqueda local}
+        \Repeat{no\_hay\_mejora o tiempo\_agotado}{
+            orden\_out, orden\_in ← encontrar\_mejor\_intercambio()\;
+            \If{intercambio\_mejora\_solucion()}{
+                realizar\_intercambio(orden\_out, orden\_in)\;
+            }
+        }
+        
+        \Return construir\_solucion\_final()\;
+    }
+    
+    \caption{Algoritmo híbrido (Parte 7)}
+    \end{algorithm}
+
+    \item \textbf{Detalles de implementación relevantes:}
+    
+    \begin{itemize}
+        \item \textbf{Clasificación automática:} Las instancias se clasifican por tamaño basándose en número de órdenes, elementos y pasillos.
+        \item \textbf{FastSolver optimizado:} Implementa estructuras de datos eficientes para verificación rápida de factibilidad.
+        \item \textbf{Búsqueda local inteligente:} La fase de mejora evalúa intercambios que respeten todas las restricciones.
+        \item \textbf{Gestión de memoria:} Para instancias grandes, se evita la construcción de matrices completas cuando es posible.
+        \item \textbf{Criterios de parada:} El algoritmo termina por convergencia, tiempo agotado, o imposibilidad de mejora.
+    \end{itemize}
+
+\end{enumerate}
+
+\clearpage
+
+%====================================================================
+\section{Resultados en tablas}
+%====================================================================
+
+En esta sección se presentan los resultados experimentales obtenidos en las evaluaciones de las Partes 6 y 7.
+
+\subsection{Parte 6 - Evaluación de mejoras}
+
+En la siguiente tabla se muestran los resultados de evaluar tres estrategias de mejora del modelo de generación de columnas de la Parte 5. Las métricas incluyen número de restricciones, variables iniciales y finales, cota dual, y mejor valor objetivo encontrado.
+
+\textbf{Abreviaturas utilizadas:}
+\begin{itemize}
+    \item \textbf{Col. iniciales:} Mejora en la selección de columnas iniciales
+    \item \textbf{Rankear:} Mejora en la función de ranking usando clustering
+    \item \textbf{Elim col.:} Eliminación de columnas no utilizadas
+    \item \textbf{\# var:} Número de variables
+    \item \textbf{últ. maestro:} Variables en la última iteración del modelo maestro
+\end{itemize}
+
+\begin{table}[!ht]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Instancia} & \textbf{Métrica} & \textbf{Parte 5} & \textbf{Col. iniciales} & \textbf{Rankear} & \textbf{Elim col.} \\
+\midrule
+\multirow{5}{*}{input\_0001} 
+  & Restricciones         & 157 & 157 & 157 & 157 \\
+  & \# var iniciales      & 17  & 17  & 17  & 17  \\
+  & \# var últ. maestro   & 18  & 17  & 18  & 17  \\
+  & Cota dual             & 51.0& 51.0& 51.0& 51.0 \\
+  & Mejor objetivo        & 68  & 68  & 68  & 68  \\
+\midrule
+\multirow{5}{*}{input\_0002} 
+  & Restricciones         & 9   & 9   & 9   & 9   \\
+  & \# var iniciales      & 6   & 6   & 6   & 6   \\
+  & \# var últ. maestro   & 6   & 6   & 6   & 6   \\
+  & Cota dual             & 8.0 & 8.0 & 8.0 & 8.0 \\
+  & Mejor objetivo        & 2   & 2   & 2   & 2   \\
+\midrule
+\multirow{5}{*}{input\_0003} 
+  & Restricciones         & 248 & 248 & 248 & 248 \\
+  & \# var iniciales      & 14  & 14  & 14  & 14  \\
+  & \# var últ. maestro   & 15  & 15  & 15  & 14  \\
+  & Cota dual             & 50.0& 50.0& 50.0& 50.0 \\
+  & Mejor objetivo        & 68  & 68  & 68  & 75  \\
+\midrule
+\multirow{5}{*}{input\_0004} 
+  & Restricciones         & 0   & 0   & 0   & 0   \\
+  & \# var iniciales      & 0   & 0   & 0   & 0   \\
+  & \# var últ. maestro   & 0   & 0   & 0   & 0   \\
+  & Cota dual             & 0.0 & 0.0 & 0.0 & 0.0 \\
+  & Mejor objetivo        & 0   & 0   & 0   & 0   \\
+\bottomrule
+\end{tabular}
+\caption{Comparación de mejoras en generación de columnas - Parte 6}
+\end{table}
+
+\textbf{Análisis de resultados Parte 6:}
+\begin{itemize}
+    \item La estrategia de eliminación de columnas inactivas mostró mejora en la instancia input\_0003 (objetivo 75 vs 68).
+    \item Las instancias pequeñas (input\_0001, input\_0002) no mostraron diferencias significativas entre estrategias.
+    \item La instancia input\_0004 no pudo resolverse con ninguna estrategia en el tiempo límite.
+\end{itemize}
+
+\clearpage
+
+\subsection{Parte 7 - Comparación con enfoque híbrido}
+
+La siguiente tabla compara el mejor modelo de la Parte 6 con el enfoque híbrido de la Parte 7, evaluado sobre instancias de diferentes conjuntos de datos.
+
+\begin{table}[!ht]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Instancia} & \textbf{Métrica} & \textbf{Mejor Parte 6} & \textbf{Parte 7} \\
+\midrule
+\multirow{5}{*}{input\_0001} 
+  & Restricciones               & 157   & 157   \\
+  & \# variables iniciales      & 17    & 17    \\
+  & \# variables últ. maestro   & 17    & 17    \\
+  & Cota dual                   & 51.0  & 51.0  \\
+  & Mejor objetivo              & 68    & 68    \\
+\midrule
+\multirow{5}{*}{input\_0002} 
+  & Restricciones               & 9     & 9     \\
+  & \# variables iniciales      & 6     & 6     \\
+  & \# variables últ. maestro   & 6     & 6     \\
+  & Cota dual                   & 8.0   & 8.0   \\
+  & Mejor objetivo              & 2     & 2     \\
+\midrule
+\multirow{5}{*}{input\_0003} 
+  & Restricciones               & 248   & 248   \\
+  & \# variables iniciales      & 14    & 14    \\
+  & \# variables últ. maestro   & 14    & 14    \\
+  & Cota dual                   & 50.0  & 50.0  \\
+  & Mejor objetivo              & 75    & 75    \\
+\midrule
+\multirow{5}{*}{input\_0005} 
+  & Restricciones               & 0     & 2625  \\
+  & \# variables iniciales      & 0     & 161   \\
+  & \# variables últ. maestro   & 0     & 161   \\
+  & Cota dual                   & 0.0   & 1250.0\\
+  & Mejor objetivo              & 0     & 1250  \\
+\bottomrule
+\end{tabular}
+\caption{Comparación entre mejor Parte 6 y enfoque híbrido Parte 7}
+\end{table}
+
+\textbf{Análisis de resultados Parte 7:}
+\begin{itemize}
+    \item Para instancias pequeñas y medianas, ambos enfoques obtienen resultados idénticos.
+    \item Para la instancia grande (input\_0005), solo el enfoque híbrido logró encontrar una solución factible.
+    \item El FastSolver permitió abordar instancias que el modelo exacto no podía resolver en tiempo limitado.
+    \item La clasificación automática de instancias permitió seleccionar el método más apropiado para cada caso.
+\end{itemize}
+
+\clearpage
+
+%====================================================================
+\section{Conclusiones}
+%====================================================================
+
+\subsection*{Dificultades encontradas}
+
+\begin{enumerate}
+
+    \item \textbf{Corrección del modelo matemático}
+    
+    El principal desafío fue implementar correctamente las correcciones sugeridas por el profesor. Inicialmente, el modelo maestro incluía una restricción de "cobertura por ítem" que era redundante, y el subproblema contenía restricciones artificiales que impedían la convergencia natural del algoritmo.
+    
+    \emph{Solución implementada:} Se eliminó la restricción redundante del modelo maestro y se agregó la restricción de pasillos únicos. En el subproblema se removieron las restricciones de límite UB y "al menos una orden", permitiendo que el algoritmo converja teóricamente cuando no existen más columnas mejoradoras.
+
+    \item \textbf{Generación de columnas repetidas}
+    
+    Durante la implementación observamos que el subproblema generaba columnas idénticas para diferentes valores de $k$, indicando que los valores duales de la restricción de cardinalidad no influían suficientemente en la función objetivo.
+    
+    \emph{Solución implementada:} Se implementó detección automática de columnas repetidas como indicador de problemas en la implementación, y se mejoró la gestión del pool de columnas para reutilización entre diferentes valores de $k$.
+
+    \item \textbf{Escalabilidad para instancias grandes}
+    
+    El modelo exacto con generación de columnas presentaba tiempos de cómputo prohibitivos para instancias con miles de órdenes y cientos de pasillos. El proceso quedaba detenido indefinidamente sin devolver resultados útiles.
+    
+    \emph{Solución implementada:} Se desarrolló FastSolver, un algoritmo heurístico que combina construcción greedy con búsqueda local. Este enfoque permite obtener soluciones de buena calidad para instancias grandes en tiempo razonable, complementando el modelo exacto para instancias pequeñas y medianas.
+
+    \item \textbf{Función objetivo y valores duales}
+    
+    Existía confusión sobre si la función objetivo debía maximizar elementos totales o elementos por pasillo. La implementación inicial mezclaba ambos enfoques inconsistentemente.
+    
+    \emph{Solución implementada:} Se clarificó que el modelo maximiza elementos totales durante la optimización, mientras que el cálculo elementos/pasillos se realiza en el análisis de resultados. Esto es consistente con los requisitos del TP donde los beneficios son unitarios.
+
+\end{enumerate}
+
+\subsection*{Principales aprendizajes obtenidos}
+
+\begin{itemize}
+    \item \textbf{Generación de columnas:} Se adquirió comprensión profunda de la técnica de generación de columnas, incluyendo la importancia de la correcta formulación del subproblema de pricing y la interpretación de valores duales. La experiencia práctica mostró cómo restricciones aparentemente lógicas pueden inhibir la convergencia del algoritmo.
+
+    \item \textbf{SCIP y PySCIPOpt:} Se desarrolló experticia en el uso del solver SCIP a través de la interfaz Python PySCIPOpt, incluyendo manejo de parámetros, extracción de valores duales, reutilización de modelos, y optimización de rendimiento para problemas de programación entera mixta.
+
+    \item \textbf{Diseño de algoritmos híbridos:} La experiencia demostró la importancia de combinar métodos exactos y heurísticos según las características de cada instancia. La clasificación automática de problemas permite aprovechar las fortalezas de cada enfoque.
+
+    \item \textbf{Importancia del feedback académico:} Las correcciones del profesor fueron fundamentales para entender los aspectos teóricos sutiles de la generación de columnas que no son evidentes en implementaciones iniciales. La iteración entre implementación y corrección teórica fue clave para el éxito del proyecto.
+
+    \item \textbf{Optimización práctica:} Se aprendió a balancear precisión matemática con eficiencia computacional, implementando técnicas como reutilización de modelos, eliminación de columnas inactivas, y estrategias de inicialización inteligente.
+
+    \item \textbf{Validación experimental:} La importancia de diseñar experimentos controlados para evaluar mejoras, incluyendo la definición de métricas apropiadas, selección de instancias representativas, y análisis estadístico de resultados.
+\end{itemize}
+
+\subsection*{Impacto de las correcciones implementadas}
+
+Las correcciones sugeridas por el profesor no solo mejoraron la corrección teórica del modelo, sino que también impactaron positivamente en:
+
+\begin{itemize}
+    \item \textbf{Convergencia:} El algoritmo ahora converge naturalmente sin necesidad de restricciones artificiales.
+    \item \textbf{Calidad de soluciones:} La eliminación de restricciones redundantes permite explorar un espacio de soluciones más amplio.
+    \item \textbf{Eficiencia computacional:} Modelos más simples con menos restricciones se resuelven más rápidamente.
+    \item \textbf{Robustez:} El código es más estable y predecible en su comportamiento.
+\end{itemize}
+
+Este proyecto demostró que la implementación exitosa de técnicas avanzadas de optimización requiere no solo conocimiento técnico, sino también comprensión profunda de los fundamentos teóricos subyacentes.
+
+\end{document}
