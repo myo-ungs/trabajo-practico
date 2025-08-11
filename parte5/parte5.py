@@ -5,8 +5,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from cargar_input import leer_input
 from guardar_output import guardar_resultado
 
-# Cargar datos desde archivo
-archivo_input = "datos_de_entrada/a/instance_0001.txt"
+# Cargar datos desde archivo (ajustar ruta relativa al root del proyecto)
+root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+archivo_input = os.path.join(root, 'datos_de_entrada', 'a', 'instance_0001.txt')
 W, S, LB, UB = leer_input(archivo_input)
 
 # Instanciar y ejecutar

@@ -24,7 +24,13 @@ def construir_mejor_solucion(modelo_relajado, columnas_k, obj_val, cant_var_inic
     return mejor_sol
 
 class Columns:
-    def __init__(self, W, S, LB, UB):
+    def __init__(self, W, S, LB, UB,
+                 verbose=True,
+                 max_cols_per_iter=12,
+                 max_total_cols_factor=5,
+                 rc_abs_tol=1e-6,
+                 rc_min_improve_ratio=0.02,
+                 penalty_pasillo_base=0.05):
         self.W = W
         self.S = S
         self.LB = LB
@@ -35,8 +41,67 @@ class Columns:
         self.columnas = {}
         self.pasillos_fijos = []
         self.cant_var_inicio = 0
+        # Conjunto para deduplicar patrones: (k, pasillo, tuple(ordenes))
+        self._patrones_vistos = set()
+        # Config
+        self.verbose = verbose
+        self.max_cols_per_iter = max_cols_per_iter
+        self.max_total_cols_factor = max_total_cols_factor  # multiplicador sobre A
+        self.rc_abs_tol = rc_abs_tol
+        self.rc_min_improve_ratio = rc_min_improve_ratio
+        self.penalty_pasillo_base = penalty_pasillo_base
+        # Uso acumulado de pasillos en columnas aceptadas (para penalización suave)
+        self._uso_pasillo = [0]*self.A
 
-    def inicializar_columnas_para_k(self, k, umbral=None):
+    def es_columna_factible(self, columna):
+        """Verifica factibilidad básica de una columna (capacidad por ítem y cota UB)."""
+        if columna is None:
+            return False
+        a = columna['pasillo']
+        ordenes = columna['ordenes']
+        # Chequear capacidad
+        for i in range(self.I):
+            demanda_i = sum(self.W[o][i] for o in range(self.O) if ordenes[o])
+            if demanda_i > self.S[a][i]:
+                return False
+        # Chequear unidades
+        unidades = sum(sum(self.W[o][i] for i in range(self.I)) for o in range(self.O) if ordenes[o])
+        if unidades > self.UB:
+            return False
+        return True
+
+    def es_solucion_factible(self, columnas_indices, k):
+        """Chequea factibilidad combinada de un conjunto de columnas (índices dentro de self.columnas[k])."""
+        if not columnas_indices:
+            return False
+        # Cardinalidad
+        if len(columnas_indices) > k:
+            return False
+        # Órdenes no repetidas
+        usados_orden = [0]*self.O
+        uso_items = [0]*self.I
+        pasillos = []
+        total_units = 0
+        for idx in columnas_indices:
+            col = self.columnas[k][idx]
+            pasillos.append(col['pasillo'])
+            for o,val in enumerate(col['ordenes']):
+                if val:
+                    if usados_orden[o]:
+                        return False
+                    usados_orden[o] = 1
+                    total_units += sum(self.W[o])
+                    for i in range(self.I):
+                        uso_items[i] += self.W[o][i]
+        # Capacidades agregadas
+        cap_total = [sum(self.S[a][i] for a in set(pasillos)) for i in range(self.I)]
+        if any(uso_items[i] > cap_total[i] for i in range(self.I)):
+            return False
+        if total_units > self.UB:
+            return False
+        return True
+
+    def inicializar_columnas_para_k(self, k, umbral=None, max_variantes=3):
         tiempo_ini = time.time()
 
         if not hasattr(self, 'columnas'):
@@ -45,37 +110,64 @@ class Columns:
         self.columnas[k] = []
         unidades_o = [sum(self.W[o]) for o in range(self.O)]
 
+        import random
+        rng = random.Random(42)
+
+        unidades_por_orden = unidades_o
+
         for a in range(self.A):  # Recorremos cada pasillo
-            if umbral and (time.time() - tiempo_ini) > umbral:
-                print("⏱️ Tiempo agotado durante inicialización de columnas")
-                break
+            variantes_generadas = 0
+            # Estrategias de orden de visita de órdenes
+            estrategias = []
+            estrategias.append(list(range(self.O)))  # orden natural
+            estrategias.append(sorted(range(self.O), key=lambda o: unidades_por_orden[o], reverse=True))  # descendente unidades
+            if self.O > 1:
+                rand_list = list(range(self.O))
+                rng.shuffle(rand_list)
+                estrategias.append(rand_list)
 
-            cap_restante = list(self.S[a])
-            sel = [0] * self.O
-            total_unidades = 0
-
-            # Agregar órdenes greedy mientras entren (maximales)
-            for o in range(self.O):
-                if all(self.W[o][i] <= cap_restante[i] for i in range(self.I)) and \
-                (total_unidades + unidades_o[o] <= self.UB):
-                    sel[o] = 1
-                    total_unidades += unidades_o[o]
-                    for i in range(self.I):
-                        cap_restante[i] -= self.W[o][i]
-
-            # Siempre agregar una columna por pasillo (aunque sea vacía)
-            self.columnas[k].append({
-                'pasillo': a,
-                'ordenes': sel,  # Puede tener todo 0 si no había órdenes factibles
-                'unidades': total_unidades
-            })
+            for ordenes_visit in estrategias:
+                if variantes_generadas >= max_variantes:
+                    break
+                if umbral and (time.time() - tiempo_ini) > umbral:
+                    print("⏱️ Tiempo agotado durante inicialización de columnas")
+                    break
+                cap_restante = list(self.S[a])
+                sel = [0] * self.O
+                total_unidades = 0
+                for o in ordenes_visit:
+                    if all(self.W[o][i] <= cap_restante[i] for i in range(self.I)) and \
+                       (total_unidades + unidades_o[o] <= self.UB):
+                        sel[o] = 1
+                        total_unidades += unidades_o[o]
+                        for i in range(self.I):
+                            cap_restante[i] -= self.W[o][i]
+                col = {
+                    'pasillo': a,
+                    'ordenes': sel,
+                    'unidades': total_unidades
+                }
+                # Evitar duplicados exactos
+                if col not in self.columnas[k]:
+                    self.columnas[k].append(col)
+                    variantes_generadas += 1
+            # Garantizar al menos una columna (aunque sea vacía)
+            if variantes_generadas == 0:
+                self.columnas[k].append({'pasillo': a, 'ordenes': [0]*self.O, 'unidades': 0})
 
         print(f"✅ {len(self.columnas[k])} columnas iniciales creadas (una por pasillo) para k = {k}")
 
-    def construir_modelo_maestro(self, k, umbral):
+    def construir_modelo_maestro(self, k, umbral, estricta_cardinalidad=True):
         modelo = Model(f"RMP_k_{k}")
         modelo.setParam('display/verblevel', 0)
         x_vars = []
+        # Pre-cálculo de uso de cada ítem por columna para poder agregar restricciones agregadas de capacidad.
+        uso_item_col = []  # lista de dicts {i: uso}
+        for col in self.columnas[k]:
+            uso_i = {}
+            for i in range(self.I):
+                uso_i[i] = sum(self.W[o][i] for o in range(self.O) if col['ordenes'][o])
+            uso_item_col.append(uso_i)
         
         # variable x_j binaria
         for idx, col in enumerate(self.columnas[k]):
@@ -83,7 +175,10 @@ class Columns:
             x_vars.append(x)
 
         # Restricción de cardinalidad
-        restr_card_k = modelo.addCons(quicksum(x_vars) == k, name="card_k")
+        if estricta_cardinalidad:
+            restr_card_k = modelo.addCons(quicksum(x_vars) == k, name="card_k")
+        else:
+            restr_card_k = modelo.addCons(quicksum(x_vars) <= k, name="card_k_leq")
 
         # Restricciones por orden
         restr_ordenes = {}
@@ -94,143 +189,164 @@ class Columns:
             )
             restr_ordenes[o] = cons
 
-        # Restricción de unidades totales
+        # Restricciones de unidades totales ≤ UB y ≥ LB
+        expr_total_units = quicksum(x_vars[j] * self.columnas[k][j]['unidades'] for j in range(len(x_vars)))
         restr_ub = modelo.addCons(
-            quicksum(x_vars[j] * self.columnas[k][j]['unidades'] for j in range(len(x_vars))) <= self.UB,
+            expr_total_units <= self.UB,
             name="restr_total_ub"
         )
-
-        # No se pueden seleccionar dos columnas del mismo pasillo
-        restr_pasillos = {}
-        for a in range(self.A):
-            cons = modelo.addCons(
-                quicksum(
-                    x_vars[j] for j in range(len(x_vars)) 
-                    if self.columnas[k][j]['pasillo'] == a
-                ) <= 1,
-                name=f"pasillo_{a}"
-            )
-            restr_pasillos[a] = cons
-
-        for a in range(self.A):
-            modelo.addCons(
-                quicksum(
-                    x_vars[j] for j in range(len(x_vars)) if self.columnas[k][j]['pasillo'] == a
-                ) <= 1,
-                name=f"pasillo_{a}"
-            )
-
-        # Función objetivo: maximizar la suma total de unidades recolectadas (por orden y ítem)
-        modelo.setObjective(
-            quicksum(
-                x_vars[j] * sum(
-                    self.W[o][i]
-                    for o in range(self.O) if self.columnas[k][j]['ordenes'][o]
-                    for i in range(self.I)
-                )
-                for j in range(len(x_vars))
-            ),
-            sense="maximize"
+        restr_lb = modelo.addCons(
+            expr_total_units >= self.LB,
+            name="restr_total_lb"
         )
 
-        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos
+        # NUEVO: Restricciones agregadas por ítem (relajación) para recuperar duales π_i.
+        restr_items = {}
+        for i in range(self.I):
+            cons = modelo.addCons(
+                quicksum(x_vars[j] * uso_item_col[j][i] for j in range(len(x_vars))) <= sum(self.S[a][i] for a in range(self.A)),
+                name=f"item_cap_{i}"
+            )
+            restr_items[i] = cons
 
-    def resolver_subproblema(self, W, S, pi, UB, k, umbral=None):
-        tiempo_ini = time.time()
+        # Nota: se elimina la restricción de unicidad de pasillo para permitir múltiples patrones del mismo pasillo
+        # mientras representen subconjuntos de órdenes distintos.
 
+        # Función objetivo: maximizar suma de unidades + epsilon * (#columnas seleccionadas)
+        epsilon = 1e-3  # mayor para romper degeneración y diferenciar columnas
+        expr_unidades = quicksum(
+            x_vars[j] * sum(
+                self.W[o][i]
+                for o in range(self.O) if self.columnas[k][j]['ordenes'][o]
+                for i in range(self.I)
+            ) for j in range(len(x_vars))
+        )
+        modelo.setObjective(expr_unidades + epsilon * quicksum(x_vars), sense="maximize")
+
+        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, restr_items
+
+    def resolver_subproblema(self, W, S, pi, UB, k, umbral=None, excluidos=None, ruido_obj=False):
+        """Subproblema (pricing) usando duales estructurados o lista plana.
+
+        Parámetros extra:
+        - excluidos: conjunto de pasillos a forzar en 0 (para diversificar en una misma iteración).
+        - ruido_obj: si True, se agrega pequeño ruido aleatorio a las unidades para romper empates.
+        """
         O = len(W)
         I = len(W[0])
         A = len(S)
-
         units_o = [sum(W[o]) for o in range(O)]
 
-        # Duales obtenidos del modelo maestro, en orden:
-        # pi[0]       = γ_k (dual de cardinalidad fija)
-        # pi[1:1+O]   = α_o (duales de cobertura por orden)
-        # pi[1+O]     = λ (dual de límite superior unidades totales)
-        # pi[2+O:2+O+I] = π_i (duales de cobertura por ítem)
-        pi_card_k = pi[0]
-        pi_ordenes = pi[1:1 + O]
-        pi_ub = pi[1 + O]
-        pi_cov = pi[2 + O: 2 + O + I]
-        pi_pasillos = pi[2 + O + I: 2 + O + I + A]
+        # Duales
+        if isinstance(pi, dict):
+            pi_card_k = pi['gamma']
+            pi_ordenes = pi['alpha']
+            pi_ub = pi['lamb']
+            pi_lb = pi.get('mu', 0.0)
+            pi_items = pi['pi_items']
+            pi_pasillos = pi['beta']
+        else:
+            idx = 0
+            pi_card_k = pi[idx]; idx += 1
+            pi_ordenes = pi[idx: idx + O]; idx += O
+            pi_ub = pi[idx]; idx += 1
+            pi_lb = pi[idx]; idx += 1
+            pi_items = pi[idx: idx + I]; idx += I
+            # En algunos modelos (p.ej. modelo_3) ya no existen restricciones por pasillo,
+            # por lo que la lista "pi" termina aquí. Entonces rellenamos con ceros.
+            if len(pi) - idx >= A:
+                pi_pasillos = pi[idx: idx + A]
+            else:
+                pi_pasillos = [0.0] * A
 
-        modelo = Model("Subproblema_unico")
-        modelo.setParam("display/verblevel", 0)
-
-        # Variables:
-        # y_a: binaria, indica si se selecciona el pasillo a
+        modelo = Model("Pricing")
+        modelo.setParam('display/verblevel', 0)
+        # Opcional: desactivar heurísticas para velocidad/determinismo
+        # modelo.setPresolve(SCIP_PARAMSETTING.FAST)
         y = {a: modelo.addVar(vtype="B", name=f"y_{a}") for a in range(A)}
-
-        # z_o: binaria, indica si se selecciona la orden o en la columna
         z = {o: modelo.addVar(vtype="B", name=f"z_{o}") for o in range(O)}
 
-        # Restricción: seleccionar exactamente un pasillo
         modelo.addCons(quicksum(y[a] for a in range(A)) == 1, name="unico_pasillo")
-
-        # Restricción: capacidad por ítem condicionada al pasillo seleccionado
+        # Excluir pasillos ya usados en esta iteración de búsqueda múltiple
+        if excluidos:
+            for a in excluidos:
+                if 0 <= a < A:
+                    modelo.addCons(y[a] == 0, name=f"excluir_{a}")
         for i in range(I):
             modelo.addCons(
-                quicksum(W[o][i] * z[o] for o in range(O)) <=
-                quicksum(S[a][i] * y[a] for a in range(A)),
+                quicksum(W[o][i] * z[o] for o in range(O)) <= quicksum(S[a][i] * y[a] for a in range(A)),
                 name=f"capacidad_item_{i}"
             )
+        # Construcción explícita de la expresión de costo reducido (signos estándar)
+        # Ruido para romper empates (muy pequeño, no altera optimalidad global pero diversifica columnas)
+        if ruido_obj:
+            import random
+            rnd = random.random
+            ruido = [1.0 + 0.01 * (rnd()-0.5) for _ in range(O)]  # +/-0.5% aprox
+            unidades_coef = [units_o[o] * ruido[o] for o in range(O)]
+        else:
+            unidades_coef = units_o
+        c_units_expr = quicksum(unidades_coef[o] * z[o] for o in range(O))
+        uso_items_exprs = {i: quicksum(W[o][i] * z[o] for o in range(O)) for i in range(I)}
+        expr = c_units_expr
+        expr -= pi_card_k  # gamma
+        expr -= pi_ub * c_units_expr  # lambda * units
+        expr += pi_lb * c_units_expr  # mu * units (LB)
+        expr -= quicksum(pi_ordenes[o] * z[o] for o in range(O))
+        expr -= quicksum(pi_items[i] * uso_items_exprs[i] for i in range(I))
+        expr -= quicksum(pi_pasillos[a] * y[a] for a in range(A))
+        # Penalización suave por reutilizar pasillos muy explotados
+        if hasattr(self, '_uso_pasillo'):
+            expr -= quicksum(self.penalty_pasillo_base * (1 + 0.1*self._uso_pasillo[a]) * y[a] for a in range(A))
+        modelo.setObjective(expr, sense="maximize")
 
-        # Calcular costo reducido por orden, independiente del pasillo porque la cobertura está condicionada a y
-        price_o = []
-        for o in range(O):
-            rc_part = units_o[o]                                    # uo
-            rc_part -= sum(W[o][i] * pi_cov[i] for i in range(I))  # - ∑ π_i * W[o][i]
-            rc_part -= pi_ub * units_o[o]                           # - λ * uo
-            rc_part -= pi_ordenes[o]                                # - α_o
-            price_o.append(rc_part)
-
-        # Función objetivo: maximizar costo reducido menos duales
-        modelo.setObjective(
-            quicksum(price_o[o] * z[o] for o in range(O)) -
-            quicksum((y[a] for a in range(A))) - pi_card_k,
-            sense="maximize"
-        )
-
-
-        # Optimizar
         modelo.optimize()
-
-        if modelo.getStatus() != "optimal":
-            print("⚠️ Subproblema no óptimo.")
+        if modelo.getStatus() != 'optimal':
+            print("⚠️ Subproblema no óptimo. Estado:", modelo.getStatus())
             return None
-
         reduced_cost = modelo.getObjVal()
-        print(f"Costo reducido subproblema: {reduced_cost}")
-
+        if reduced_cost > 1e-6:
+            try:
+                pas_a = next(a for a in range(A) if modelo.getVal(y[a]) > 0.5)
+                ordenes_sel = [o for o in range(O) if modelo.getVal(z[o]) > 0.5]
+                unidades_sel = sum(units_o[o] for o in ordenes_sel)
+                uso_items_det = [sum(W[o][i] for o in ordenes_sel) for i in range(I)]
+                comp = {
+                    'units': unidades_sel,
+                    'gamma': pi_card_k,
+                    'lambda*units': pi_ub * unidades_sel,
+                    'mu*units': pi_lb * unidades_sel,
+                    'sum_alpha': sum(pi_ordenes[o] for o in ordenes_sel),
+                    'sum_pi_items': sum(pi_items[i]*uso_items_det[i] for i in range(I)),
+                    'beta': pi_pasillos[pas_a] if pi_pasillos else 0.0
+                }
+                print("RC componentes:", comp)
+            except Exception:
+                pass
+        print(f"Costo reducido subproblema: {reduced_cost:.6f}")
         if reduced_cost <= 1e-6:
             return None
-
-        # Obtener el pasillo seleccionado
-        pasillo_seleccionado = None
-        for a in range(A):
-            if modelo.getVal(y[a]) > 0.5:
-                pasillo_seleccionado = a
-                break
-
-        # Obtener las órdenes seleccionadas
+        pasillo_seleccionado = next(a for a in range(A) if modelo.getVal(y[a]) > 0.5)
         ordenes = [int(modelo.getVal(z[o]) + 0.5) for o in range(O)]
         unidades = sum(units_o[o] for o in range(O) if ordenes[o])
-
         columna = {'pasillo': pasillo_seleccionado, 'ordenes': ordenes, 'unidades': unidades}
-
-        if columna in self.columnas.get(k, []):
-            print("⚠️ Columna repetida generada:", columna)
+        clave = (k, pasillo_seleccionado, tuple(ordenes))
+        if clave in self._patrones_vistos:
+            print("⚠️ Columna repetida generada (descartada).")
             return None
-
+        self._patrones_vistos.add(clave)
         self.columnas.setdefault(k, []).append(columna)
         return columna
 
 
-    def agregar_columna(self, maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k):
+    def agregar_columna(self, maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, k, restr_items=None):
         idx = len(self.columnas[k]) - 1  # índice correcto de la nueva columna (ya agregada)
         x = maestro.addVar(vtype="B", name=f"x_{nueva_col['pasillo']}_{idx}", obj=nueva_col['unidades'])
         x_vars.append(x)
+
+        # Actualizar uso de pasillo (para penalización futura)
+        if hasattr(self, '_uso_pasillo'):
+            self._uso_pasillo[nueva_col['pasillo']] += 1
 
         # Agregar coeficiente en restricción cardinalidad
         maestro.addConsCoeff(restr_card_k, x, 1)
@@ -239,14 +355,15 @@ class Columns:
         for o in range(self.O):
             maestro.addConsCoeff(restr_ordenes[o], x, nueva_col['ordenes'][o])
 
-        # Agregar coeficiente en restricción límite superior unidades
+        # Agregar coeficiente en restricciones de unidades (UB y LB)
         maestro.addConsCoeff(restr_ub, x, nueva_col['unidades'])
+        maestro.addConsCoeff(restr_lb, x, nueva_col['unidades'])
 
-        # Agregar coeficientes en restricciones de cobertura por ítem
-        for i in range(self.I):
-            contribucion_i = sum(self.W[o][i] * nueva_col['ordenes'][o] for o in range(self.O))
-            if contribucion_i > 0:
-                maestro.addConsCoeff(restr_cov[i], x, contribucion_i)
+        # Agregar coeficientes en restricciones de ítems si existen
+        if restr_items is not None:
+            for i, cons in restr_items.items():
+                uso_i = sum(self.W[o][i] for o in range(self.O) if nueva_col['ordenes'][o])
+                maestro.addConsCoeff(cons, x, uso_i)
 
     def Opt_cantidadPasillosFija(self, k, umbral):
         tiempo_ini = time.time()
@@ -270,7 +387,7 @@ class Columns:
             print(f"⌛ Iteración con {len(self.columnas.get(k, []))} columnas")
 
             # Construcción del modelo maestro con las columnas actuales
-            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos = self.construir_modelo_maestro(k, tiempo_restante_total)
+            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, restr_items = self.construir_modelo_maestro(k, tiempo_restante_total, estricta_cardinalidad=False)
 
             # Crear una copia para relajación y obtención de duales
             maestro_relajado = Model(sourceModel=maestro)
@@ -293,8 +410,36 @@ class Columns:
                 print(f"⚠️ No se encontró solución óptima. Estado: {maestro_relajado.getStatus()}")
                 break
 
-            # Obtener valores duales de las restricciones para usar en el subproblema
-            pi = [maestro_relajado.getDualsolLinear(c) for c in maestro_relajado.getConss()]
+            # Obtener valores duales según el orden de agregación de restricciones:
+            # 0: cardinalidad
+            # 1..O: ordenes
+            # O+1: UB
+            # O+2: LB
+            # O+3 .. O+2+I: items
+            # resto: (no hay pasillos ahora porque se eliminó unicidad) → beta se mantiene para compatibilidad (cero)
+            conss = maestro_relajado.getConss()
+            gamma = maestro_relajado.getDualsolLinear(conss[0]) if conss else 0.0
+            alpha = [maestro_relajado.getDualsolLinear(conss[1+o]) for o in range(self.O)] if len(conss) >= 1+self.O else [0.0]*self.O
+            lamb = maestro_relajado.getDualsolLinear(conss[1+self.O]) if len(conss) > 1+self.O else 0.0
+            mu = maestro_relajado.getDualsolLinear(conss[2+self.O]) if len(conss) > 2+self.O else 0.0
+            pi_items = [maestro_relajado.getDualsolLinear(conss[3+self.O + i]) for i in range(self.I)] if len(conss) > 3+self.O else [0.0]*self.I
+            beta = [0.0]*self.A  # ya no hay restricciones por pasillo
+            # Heurística de inversión de signo si la mayoría son negativos (esperamos no-negativos)
+            def flip_block(vs):
+                if not vs: return vs, False
+                neg = sum(1 for v in vs if v < -1e-9)
+                pos = sum(1 for v in vs if v > 1e-9)
+                if neg > pos and neg >= 0.7*len(vs):
+                    return [-v for v in vs], True
+                return vs, False
+            alpha, fa = flip_block(alpha)
+            pi_items, fi = flip_block(pi_items)
+            beta, fb = flip_block(beta)
+            fg = False; fl = False
+            if gamma < -1e-9: gamma, fg = -gamma, True
+            if lamb < -1e-9: lamb, fl = -lamb, True
+            duales = {'gamma': gamma, 'alpha': alpha, 'lamb': lamb, 'mu': mu, 'pi_items': pi_items, 'beta': beta}
+            print(f"Dual(g={gamma:.3g},l={lamb:.3g},mu={mu:.3g}) a_avg={sum(alpha)/max(1,len(alpha)):.3g} flips g={fg} l={fl} a={fa} i={fi} b={fb}")
 
             # Guardar valor objetivo actual
             valor_objetivo = maestro_relajado.getObjVal()
@@ -305,18 +450,36 @@ class Columns:
 
             # print("❤️ Cantidad de columnas antes de agregar:", len(self.columnas.get(k, [])))
 
-            # Resolver el subproblema para encontrar una columna con costo reducido negativo
-            nueva_col = self.resolver_subproblema(self.W, self.S, pi, self.UB, k, tiempo_restante_total)
-
-            if nueva_col is None:
-                print("No se generó una columna mejoradora o era repetida → Fin del bucle.")
+            # Búsqueda de múltiples columnas mejoradoras en una misma iteración
+            mejoras_en_iter = 0
+            intentos = 0
+            max_intentos = self.max_cols_per_iter  # configurable
+            pasillos_excluidos_iter = set()
+            while intentos < max_intentos:
+                intentos += 1
+                # Activar ruido a partir del segundo intento de la misma iteración
+                usar_ruido = intentos > 1
+                nueva_col = self.resolver_subproblema(self.W, self.S, duales, self.UB, k, tiempo_restante_total,
+                                                     excluidos=pasillos_excluidos_iter, ruido_obj=usar_ruido)
+                if nueva_col is None:
+                    if mejoras_en_iter == 0:
+                        print("No se generó una columna mejoradora o era repetida → Fin del bucle.")
+                        intentos = max_intentos  # salir bucle externo
+                    break
+                print("Nueva columna encontrada:", nueva_col)
+                print("➕ Agregando columna nueva al modelo maestro.")
+                self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, k, restr_items=restr_items)
+                mejoras_en_iter += 1
+                pasillos_excluidos_iter.add(nueva_col['pasillo'])  # excluir este pasillo para próxima búsqueda
+                # Criterio adicional de parada: si demasiadas columnas o tiempo bajo
+                if len(self.columnas.get(k, [])) > self.max_total_cols_factor * self.A:
+                    print("🛑 Límite global de columnas alcanzado para k, deteniendo iteraciones.")
+                    intentos = max_intentos
+                    break
+                # Excluir patrón exacto en próximas llamadas: ya está en _patrones_vistos
+                # Para intentar diversificar, podríamos agregar penalización, aquí sólo seguimos buscando.
+            if mejoras_en_iter == 0:
                 break
-
-            print("Nueva columna encontrada:", nueva_col)
-            print("➕ Agregando columna nueva al modelo maestro.")
-
-            # Agregar la nueva columna al modelo maestro
-            self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos, k)
 
             # print("💙 Cantidad de columnas después de agregar:", len(self.columnas.get(k, [])))
 
@@ -326,8 +489,8 @@ class Columns:
     def Opt_PasillosFijos(self, umbral):
         tiempo_ini = time.time()
         k = len(self.pasillos_fijos)
-        
-        # Calcular tiempo restante correctamente (usamos tiempo_ini para referencia)
+
+        # Tiempo restante para la fase final
         tiempo_restante_final = umbral - (time.time() - tiempo_ini)
         if tiempo_restante_final <= 0:
             print("⏳ No queda tiempo para Opt_PasillosFijos")
@@ -341,7 +504,7 @@ class Columns:
                 "cota_dual": 0
             }
 
-        # Validar que haya columnas para k
+        # Verificación de existencia de columnas para este k
         if k not in self.columnas or not self.columnas[k]:
             print(f"❌ No hay columnas generadas para k = {k}")
             return {
@@ -354,21 +517,19 @@ class Columns:
                 "cota_dual": 0
             }
 
-        # Construir el modelo maestro con las columnas actuales
-        modelo, x_vars, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante_final)
+        # Construir modelo maestro con cardinalidad estricta
+        maestro, x_vars, *_ = self.construir_modelo_maestro(k, tiempo_restante_final, estricta_cardinalidad=True)
 
-        modelo.setPresolve(SCIP_PARAMSETTING.OFF)
-        modelo.setHeuristics(SCIP_PARAMSETTING.OFF)
-        modelo.disablePropagation()
-        modelo.optimize()
+        maestro.setPresolve(SCIP_PARAMSETTING.OFF)
+        maestro.setHeuristics(SCIP_PARAMSETTING.OFF)
+        maestro.disablePropagation()
+        maestro.optimize()
+        status = maestro.getStatus()
 
-        status = modelo.getStatus()
-
-        if status in ["optimal", "feasible"] and modelo.getNSols() > 0:
-            obj_val = modelo.getObjVal()
+        if status in ["optimal", "feasible"] and maestro.getNSols() > 0:
+            obj_val = maestro.getObjVal()
             pasillos_seleccionados = set()
             ordenes_seleccionadas = set()
-
             for idx, x in enumerate(x_vars):
                 val = x.getLPSol()
                 if val and val > 1e-5:
@@ -376,15 +537,14 @@ class Columns:
                     for o, seleccionado in enumerate(self.columnas[k][idx]['ordenes']):
                         if seleccionado:
                             ordenes_seleccionadas.add(o)
-
             mejor_sol = {
                 "valor_objetivo": obj_val / len(pasillos_seleccionados) if pasillos_seleccionados else 0,
                 "pasillos_seleccionados": pasillos_seleccionados,
                 "ordenes_seleccionadas": ordenes_seleccionadas,
-                "restricciones": modelo.getNConss(),
+                "restricciones": maestro.getNConss(),
                 "variables": self.cant_var_inicio if hasattr(self, "cant_var_inicio") else 0,
-                "variables_final": modelo.getNVars(),
-                "cota_dual": modelo.getDualbound()
+                "variables_final": maestro.getNVars(),
+                "cota_dual": maestro.getDualbound()
             }
         else:
             print(f"⚠️ Modelo no óptimo ni factible. Estado: {status}")
@@ -392,12 +552,11 @@ class Columns:
                 "valor_objetivo": 0,
                 "pasillos_seleccionados": set(),
                 "ordenes_seleccionadas": set(),
-                "restricciones": modelo.getNConss() if modelo else 0,
+                "restricciones": maestro.getNConss() if maestro else 0,
                 "variables": self.cant_var_inicio if hasattr(self, "cant_var_inicio") else 0,
-                "variables_final": modelo.getNVars() if modelo else 0,
-                "cota_dual": modelo.getDualbound() if modelo else 0
+                "variables_final": maestro.getNVars() if maestro else 0,
+                "cota_dual": maestro.getDualbound() if maestro else 0
             }
-
         return mejor_sol
 
 

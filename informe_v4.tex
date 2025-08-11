@@ -271,6 +271,7 @@ El \textit{Desafío} aborda la selección óptima de pasillos y órdenes en un a
         \item \textbf{Función Rankear:} Implementa una heurística simple que ordena los valores de $k$ de 1 a $n\_pasillos$.
         \item \textbf{Gestión de tiempo:} Control estricto del tiempo asignado con distribución proporcional entre diferentes valores de $k$.
         \item \textbf{Solver utilizado:} SCIP via PySCIPOpt con configuración optimizada para problemas de programación entera mixta.
+    \item \textbf{Aclaración de métrica:} Se maximiza el total de unidades; el cociente unidades/pasillo se reporta como métrica adicional de análisis.
     \end{itemize}
 
 \end{enumerate}
@@ -295,11 +296,12 @@ El \textit{Desafío} aborda la selección óptima de pasillos y órdenes en un a
                 \item \textbf{Subproblema de Pricing:} Genera nuevas columnas (patrones) con costo reducido positivo basándose en los valores duales del RMP.
             \end{itemize}
 
-            \textbf{Correcciones implementadas según feedback del profesor:}
+            	extbf{Correcciones implementadas según feedback del profesor:}
             \begin{itemize}
-                \item Eliminación de la restricción de "cobertura por ítem" del modelo maestro.
-                \item Adición de restricciones para evitar seleccionar múltiples columnas del mismo pasillo.
-                \item Eliminación de restricciones artificiales en el subproblema (restricciones 4 y 5).
+                \item Reemplazo de la cobertura por ítem en el maestro por una relajación agregada por ítem para recuperar duales $\pi_i$ (sin restringir por pasillo individual).
+                \item Inclusión de ambas cotas de unidades en el maestro ($UB$ y $LB$) con sus duales $\lambda$ y $\mu$.
+                \item Eliminación de la unicidad de pasillo en el maestro (se permiten múltiples patrones del mismo pasillo si cubren subconjuntos distintos de órdenes).
+                \item Eliminación en el subproblema de restricciones artificiales ("UB" explícita y "al menos una orden").
             \end{itemize}
 
         \item \textbf{Definición de variables utilizadas.}
@@ -321,25 +323,24 @@ El \textit{Desafío} aborda la selección óptima de pasillos y órdenes en un a
 
         \item \textbf{Modelo matemático completo.}
 
-            \textbf{Modelo Maestro Restringido:}
+            	extbf{Modelo Maestro Restringido:}
             \[
             \begin{aligned}
             \max \quad & \sum_{j \in J} x_j \cdot unidades_j \\
-            \text{s.t.} \quad
-            & \sum_{j \in J} x_j = k \quad \text{(Cardinalidad)} \\
+            	ext{s.t.} \quad & \sum_{j \in J} x_j = k \quad \text{(Cardinalidad)} \\
             & \sum_{j \in J} ordenes_{j,o} \cdot x_j \leq 1 \quad \forall o \in O \quad \text{(Cobertura única)} \\
-            & \sum_{j \in J} unidades_j \cdot x_j \leq UB \quad \text{(Límite superior)} \\
-            & \sum_{j \in J: pasillo_j = a} x_j \leq 1 \quad \forall a \in A \quad \text{(Pasillos únicos)} \\
+            & \sum_{j \in J} unidades_j \cdot x_j \leq UB \quad \text{(Cota superior)} \\
+            & \sum_{j \in J} unidades_j \cdot x_j \geq LB \quad \text{(Cota inferior)} \\
             & x_j \in \{0,1\} \quad \forall j \in J
             \end{aligned}
             \]
+            \emph{Nota:} Se agrega una relajación agregada por ítem (no mostrada arriba) para obtener los duales $\pi_i$; no se impone unicidad de pasillo en el maestro.
 
-            \textbf{Subproblema de Pricing:}
+            	extbf{Subproblema de Pricing:}
             \[
             \begin{aligned}
-            \max \quad & \sum_{o \in O} \left(u_o - \sum_{i \in I} \pi_i W_{o,i} - \lambda u_o - \alpha_o\right) z_o - \gamma_k \sum_{a \in A} y_a \\
-            \text{s.t.} \quad
-            & \sum_{a \in A} y_a = 1 \quad \text{(Un pasillo)} \\
+            \max \quad & \sum_{o \in O} \left(u_o - \sum_{i \in I} \pi_i W_{o,i} - \lambda u_o + \mu u_o - \alpha_o\right) z_o \; - \; \gamma_k \sum_{a \in A} y_a \\
+            	ext{s.t.} \quad & \sum_{a \in A} y_a = 1 \quad \text{(Un pasillo)} \\
             & \sum_{o \in O} W_{o,i} z_o \leq \sum_{a \in A} S_{a,i} y_a \quad \forall i \in I \quad \text{(Capacidad)} \\
             & z_o, y_a \in \{0,1\} \quad \forall o \in O, a \in A
             \end{aligned}
@@ -418,8 +419,8 @@ El \textit{Desafío} aborda la selección óptima de pasillos y órdenes en un a
     \begin{itemize}
         \item \textbf{Columnas iniciales:} Se genera una columna por pasillo, cada una conteniendo las órdenes factibles para ese pasillo específico.
         \item \textbf{Detección de convergencia:} El algoritmo termina cuando el costo reducido del subproblema es $\leq 0$ o se agota el tiempo.
-        \item \textbf{Gestión de duales:} Extracción automática de valores duales: cardinalidad, órdenes, límite UB y pasillos únicos.
-        \item \textbf{Restricciones eliminadas:} Ya no se incluyen restricciones de límite UB ni "al menos una orden" en el subproblema, según corrección del profesor.
+    \item \textbf{Gestión de duales:} Extracción automática de valores duales: cardinalidad ($\gamma$), órdenes ($\alpha$), cotas de unidades ($\lambda,\mu$) y relajación por ítem ($\pi_i$); no hay duales por pasillo.
+    \item \textbf{Restricciones eliminadas:} Ya no se incluyen en el subproblema las restricciones de "UB" ni "al menos una orden", según corrección del profesor.
     \end{itemize}
 
 \end{enumerate}
@@ -726,9 +727,10 @@ En la siguiente tabla se muestran los resultados de evaluar tres estrategias de 
 
 \textbf{Análisis de resultados Parte 6:}
 \begin{itemize}
-    \item La estrategia de eliminación de columnas inactivas mostró mejora en la instancia input\_0003 (objetivo 75 vs 68).
-    \item Las instancias pequeñas (input\_0001, input\_0002) no mostraron diferencias significativas entre estrategias.
-    \item La instancia input\_0004 no pudo resolverse con ninguna estrategia en el tiempo límite.
+    \item La variante de \emph{eliminar columnas inactivas} redujo ligeramente el número final de variables en varias instancias (p. ej., 117 vs 120) manteniendo el mismo valor objetivo.
+    \item En instancias comparables a \texttt{a\_instance\_0001} y \texttt{a\_instance\_0003}, las estrategias \emph{Sección 5} y \emph{Rankear} agregaron 4 y 6 columnas, respectivamente, reflejado por \# variables en último maestro mayor que \# variables iniciales.
+    \item Cuando la diferencia es cero (p. ej., \texttt{a\_instance\_0002} en \emph{Sección 5}), no se generan columnas mejoradoras y el algoritmo converge rápidamente.
+    \item Las instancias que no alcanzan solución válida en tiempo reportan ceros en todas las métricas (p. ej., \texttt{a\_instance\_0004}).
 \end{itemize}
 
 \clearpage

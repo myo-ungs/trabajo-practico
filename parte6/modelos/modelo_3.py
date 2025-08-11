@@ -82,7 +82,8 @@ class Columns(ColumnsBase):
             print(f"⌛ Iteración con {len(self.columnas[k])} columnas")
 
             # Construyo el modelo maestro
-            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov = self.construir_modelo_maestro(k, tiempo_restante_total)
+            # Actualizado: ahora construir_modelo_maestro devuelve también restricción LB y restr_items
+            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, restr_items = self.construir_modelo_maestro(k, tiempo_restante_total)
 
             # Copia del modelo maestro
             maestro_relajado = Model(sourceModel=maestro)
@@ -137,7 +138,14 @@ class Columns(ColumnsBase):
 
             print("Nueva columna: ", nueva_col)
             print("➕ Columna nueva encontrada, se agrega.")
-            self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_cov, k)
+            # Agregar columna (extender para restricciones de ítem): reutilizamos lógica base y luego agregamos coeficientes por ítem.
+            self.agregar_columna(maestro, nueva_col, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, k, restr_items=restr_items)
+            # Coeficientes en restricciones de ítems agregadas (uso agregado de la nueva columna)
+            idx_col = len(self.columnas[k]) - 1
+            uso_items_nueva = {}
+            for i in range(self.I):
+                uso_items_nueva[i] = sum(self.W[o][i] for o in range(self.O) if nueva_col['ordenes'][o])
+                maestro.addConsCoeff(restr_items[i], x_vars[-1], uso_items_nueva[i])
             print("💙 Cantidad de columnas después de agregar:", len(self.columnas[k]))
         
         # Después de salir del bucle, eliminar columnas inactivas

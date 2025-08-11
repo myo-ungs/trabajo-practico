@@ -35,9 +35,15 @@ def ejecutar_modelo(modulo, W, S, LB, UB, umbral):
         return None
 
 def ejecutar_todos_modelos(config):
-    input_base_path = os.path.abspath(config['inPath'])  # carpeta que contiene carpetas A/, B/, etc
-    threshold = int(config.get('threshold', 600))
+    raw_inpath = config['inPath']
+    # Si es relativa, resolver respecto al directorio base del proyecto (donde está este script)
     base_dir = os.path.dirname(__file__)
+    if not os.path.isabs(raw_inpath):
+        input_base_path = os.path.abspath(os.path.join(base_dir, raw_inpath))
+    else:
+        input_base_path = raw_inpath
+    print(f"[DEBUG] input_base_path resuelto: {input_base_path}")
+    threshold = int(config.get('threshold', 600))
 
     datasets = config.get('datasets', 'A').split(',')
     max_files_per_dataset = int(config.get('max_files_per_dataset', 4))
@@ -86,9 +92,17 @@ def ejecutar_todos_modelos(config):
                 resultado = ejecutar_modelo(modulo, W, S, LB, UB, threshold / len(modelos))
                 elapsed = time.time() - start_time
 
-                if resultado is None:
-                    print(f"⚠️ Resultado None para {modelo} - {nombre_archivo}, asignando dict vacío")
-                    resultado = {}
+                if not resultado or 'valor_objetivo' not in resultado:
+                    print(f"⚠️ Resultado None o incompleto para {modelo} - {nombre_archivo}, asignando valores por defecto")
+                    resultado = {
+                        'valor_objetivo': 0,
+                        'ordenes_seleccionadas': set(),
+                        'pasillos_seleccionados': set(),
+                        'restricciones': 0,
+                        'variables': 0,
+                        'variables_final': 0,
+                        'cota_dual': 0
+                    }
 
                 resultado['tiempo_total'] = round(elapsed, 2)
 
@@ -101,7 +115,7 @@ def ejecutar_todos_modelos(config):
                 out_file = os.path.join(out_dir, f"{nombre_archivo}.out")
 
                 with open(out_file, 'w') as f:
-                    f.write(f"Mejor valor objetivo: {resultado['valor_objetivo']}\n")
+                    f.write(f"Mejor valor objetivo: {resultado.get('valor_objetivo', 0)}\n")
 
                     f.write("Ordenes seleccionadas:\n")
                     ordenes = " ".join(str(o) for o in sorted(resultado.get('ordenes_seleccionadas', [])))
@@ -114,27 +128,33 @@ def ejecutar_todos_modelos(config):
     return metrica_dict, modelos
 
 def escribir_csv(metrica_dict, csv_path, modelos):
+    # Formato requerido por enunciado (imagen): cuatro variantes
+    # Renombrar columnas visibles
+    display_names_map = {
+        'modelo0': 'Sección 5',
+        'modelo1': 'Col. iniciales',
+        'modelo2': 'Rankear',
+        'modelo3': 'Eliminar col.'
+    }
+    display_headers = [display_names_map.get(m, m) for m in modelos]
+
     metricas = [
         ("Restricciones", 'restricciones'),
-        ("# variables inicial", 'variables'),
+        ("# variables", 'variables'),
         ("# variables en últ. maestro", 'variables_final'),
-        # ("Cota dual", 'cota_dual'),
+        ("Cota dual", 'cota_dual'),
         ("Mejor objetivo", 'valor_objetivo'),
-        ("Tiempo (s)", 'tiempo_total')
     ]
-
-    modelo_a_columna = {m: i+2 for i, m in enumerate(modelos)}
 
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f, delimiter=';')
-        header = ["Instancia", "Métrica"] + modelos
+        header = ["Instancia", "Métrica"] + display_headers
         writer.writerow(header)
         for instancia, modelos_metricas in sorted(metrica_dict.items()):
             first = True
             for nombre_metrica, clave in metricas:
                 row = [instancia if first else '', nombre_metrica] + [''] * len(modelos)
                 for i, modelo in enumerate(modelos):
-                    valor = modelos_metricas.get(modelo, {}).get(clave, '')
-                    row[2 + i] = valor
+                    row[2 + i] = modelos_metricas.get(modelo, {}).get(clave, '')
                 writer.writerow(row)
                 first = False

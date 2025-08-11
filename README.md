@@ -117,3 +117,5 @@ Los modelos de programación lineal se implementan utilizando PuLP, una bibliote
 Las restricciones principales garantizan que la cantidad de cada tipo de ítem disponible en los contenedores seleccionados sea suficiente para cubrir la demanda de las bolsitas seleccionadas.
 
 La función objetivo maximiza el beneficio total (suma de ítems en contenedores seleccionados y bolsitas seleccionadas).
+
+Nota (Generación de columnas): En la Parte 5 se reemplazó la cobertura por ítem del maestro por una relajación agregada que permite recuperar duales π_i; se añadieron cotas de unidades (UB y LB) con duales λ y μ, y el subproblema ya no impone “UB” ni “al menos una orden”.
