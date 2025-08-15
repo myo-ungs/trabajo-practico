@@ -1,6 +1,6 @@
 from pulp import LpMaximize, LpProblem, LpVariable, LpStatus, lpSum, LpBinary
 from leer_archivo import cargar_parametros_desde_archivo, imprimir_parametros
-from modelos import Parametros
+from clases import Parametros
 
 def resolver_problema1(parametros: Parametros):
     """
@@ -167,7 +167,6 @@ def resolver_problema2(parametros: Parametros):
     
 if __name__ == "__main__":
     # Cargar parámetros desde el archivo
-    # nombre_archivo = "datos_de_entrada/entrada_test.txt"
     nombre_archivo = "datos_de_entrada/input_0001.txt"
     parametros = cargar_parametros_desde_archivo(nombre_archivo)
     
