@@ -36,7 +36,10 @@ def ejecutar_modelo(modulo, W, S, LB, UB, umbral):
 
 def ejecutar_todos_modelos(config):
     input_base_path = os.path.abspath(config['inPath'])  # carpeta que contiene carpetas A/, B/, etc
-    threshold = int(config.get('threshold', 600))
+    threshold = float(config.get('threshold', 10))  
+
+    # Convertir a segundos
+    threshold = int(threshold * 60)
     base_dir = os.path.dirname(__file__)
 
     datasets = config.get('datasets', 'A').split(',')
@@ -83,7 +86,7 @@ def ejecutar_todos_modelos(config):
                 W, S, LB, UB = leer_input(input_file)
 
                 start_time = time.time()
-                resultado = ejecutar_modelo(modulo, W, S, LB, UB, threshold / len(modelos))
+                resultado = ejecutar_modelo(modulo, W, S, LB, UB, threshold)
                 elapsed = time.time() - start_time
 
                 if resultado is None:
