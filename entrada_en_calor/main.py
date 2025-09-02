@@ -1,16 +1,9 @@
 from pulp import LpMaximize, LpProblem, LpVariable, LpStatus, lpSum, LpBinary
 from leer_archivo import cargar_parametros_desde_archivo, imprimir_parametros
-from modelos import Parametros
+from clases import Parametros
 
 def resolver_problema1(parametros: Parametros):
-    """
-    Resuelve el problema 1:
-    Encontrar un container a ∈ A y un subconjunto de bolsitas O' ⊆ O tales que:
-    - La cantidad de veces que aparece cada item i ∈ I en el container alcance para cubrir
-      las apariciones de i en O'
-    - Se maximice la suma de beneficios del container y de los items de las bolsitas O'
-      (sin multiplicar por cantidad de ítems)
-    """
+
     print("\n======== RESOLVIENDO PROBLEMA 1 ========")
     
     modelo = LpProblem(name="problema1", sense=LpMaximize)
@@ -91,13 +84,7 @@ def resolver_problema1(parametros: Parametros):
         return None
 
 def resolver_problema2(parametros: Parametros):
-    """
-    Resuelve el problema 2:
-    Encontrar subconjuntos A' ⊆ A de contenedores y O' ⊆ O de bolsitas tales que:
-    - La cantidad de veces que aparece cada ítem i ∈ I en A' alcance para cubrir
-      las apariciones de i en O'
-    - Se maximice la suma de beneficios de los contenedores de A' y de los ítems de las bolsitas de O'
-    """
+
     print("\n======== RESOLVIENDO PROBLEMA 2 ========")
 
     modelo = LpProblem(name="problema2", sense=LpMaximize)
@@ -167,7 +154,6 @@ def resolver_problema2(parametros: Parametros):
     
 if __name__ == "__main__":
     # Cargar parámetros desde el archivo
-    # nombre_archivo = "datos_de_entrada/entrada_test.txt"
     nombre_archivo = "datos_de_entrada/input_0001.txt"
     parametros = cargar_parametros_desde_archivo(nombre_archivo)
     
