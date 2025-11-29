@@ -7,7 +7,7 @@ from script import leer_config, ejecutar_todos_modelos, escribir_csv
 def main():
     if len(sys.argv) < 2:
         print("Uso: python parte7.py archivo.cfg")
-        cfg_path = "parte7/experimento.cfg"
+        cfg_path = os.path.join(os.path.dirname(__file__), "experimento.cfg")
     else:
         cfg_path = sys.argv[1]
 

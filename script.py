@@ -120,6 +120,7 @@ def escribir_csv(metrica_dict, csv_path, modelos):
         ("# variables inicial", 'variables'),
         ("# variables en últ. maestro", 'variables_final'),
         ("Mejor objetivo", 'valor_objetivo'),
+        ("Tiempo Total (s)", 'tiempo_total'),
     ]
 
     modelo_a_columna = {m: i+2 for i, m in enumerate(modelos)}

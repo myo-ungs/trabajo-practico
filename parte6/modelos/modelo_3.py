@@ -73,7 +73,7 @@ class Columns(ColumnsBase):
             if tiempo_restante <= 0:
                 break
 
-            maestro, _, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante)
+            maestro, _, _, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante)
             if maestro is None:
                 return None
 

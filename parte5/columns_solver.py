@@ -98,7 +98,7 @@ class Columns:
         for idx, col in enumerate(self.columnas[k]):
             if tiempo_excedido(tiempo_ini, umbral):
                 print("⏱️ Tiempo excedido durante la creación de variables.")
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None
 
             x = modelo.addVar(vtype="B", name=f"x_{col['pasillo']}_{idx}")
             x_vars.append(x)
@@ -109,7 +109,7 @@ class Columns:
         for o in range(self.O):
             if tiempo_excedido(tiempo_ini, umbral):
                 print("⏱️ Tiempo excedido durante la creación de restricciones de órdenes.")
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None
 
             cons = modelo.addCons(
                 quicksum(x_vars[j] * self.columnas[k][j]['ordenes'][o] for j in range(len(x_vars))) <= 1,
@@ -119,18 +119,23 @@ class Columns:
 
         if tiempo_excedido(tiempo_ini, umbral):
             print("⏱️ Tiempo excedido antes de la restricción de unidades totales.")
-            return None, None, None, None, None, None
+            return None, None, None, None, None, None, None
 
         restr_ub = modelo.addCons(
             quicksum(x_vars[j] * self.columnas[k][j]['unidades'] for j in range(len(x_vars))) <= self.UB,
             name="restr_total_ub"
         )
 
+        restr_lb = modelo.addCons(
+            quicksum(x_vars[j] * self.columnas[k][j]['unidades'] for j in range(len(x_vars))) >= self.LB,
+            name="restr_total_lb"
+        )
+
         restr_pasillos = {}
         for a in range(self.A):
             if tiempo_excedido(tiempo_ini, umbral):
                 print("⏱️ Tiempo excedido durante la creación de restricciones de pasillos.")
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None
 
             cons = modelo.addCons(
                 quicksum(
@@ -142,7 +147,7 @@ class Columns:
 
         if tiempo_excedido(tiempo_ini, umbral):
             print("⏱️ Tiempo excedido antes de definir la función objetivo.")
-            return None, None, None, None, None, None
+            return None, None, None, None, None, None, None
 
         modelo.setObjective(
             quicksum(
@@ -156,7 +161,7 @@ class Columns:
             sense="maximize"
         )
 
-        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos
+        return modelo, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, restr_pasillos
     
 
     
@@ -181,6 +186,9 @@ class Columns:
         modelo.addCons(quicksum(y[a] for a in range(A)) == 1, name="unico_pasillo")
 
         for i in range(I):
+            if tiempo_excedido(tiempo_ini, umbral):
+                print("⏱️ Tiempo excedido durante la creación de restricciones del subproblema.")
+                return None
             modelo.addCons(
                 quicksum(W[o][i] * z[o] for o in range(O)) <=
                 quicksum(S[a][i] * y[a] for a in range(A)),
@@ -194,6 +202,7 @@ class Columns:
         expr_Ajy = dual_vals.get("card_k", 0) \
             + quicksum(dual_vals.get(f"orden_{o}", 0) * z[o] for o in range(O)) \
             + dual_vals.get("restr_total_ub", 0) * quicksum(units_o[o] * z[o] for o in range(O)) \
+            + dual_vals.get("restr_total_lb", 0) * quicksum(units_o[o] * z[o] for o in range(O)) \
             + quicksum(dual_vals.get(f"pasillo_{a}", 0) * y[a] for a in range(A))
 
         modelo.setObjective(expr_cj - expr_Ajy, sense="maximize")
@@ -234,7 +243,7 @@ class Columns:
 
             print(f"⌛ Iteración con {len(self.columnas.get(k, []))} columnas")
 
-            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_pasillos = self.construir_modelo_maestro(k, tiempo_restante_total)
+            maestro, x_vars, restr_card_k, restr_ordenes, restr_ub, restr_lb, restr_pasillos = self.construir_modelo_maestro(k, tiempo_restante_total)
             if maestro is None:
                 print("No se pudo construir el modelo maestro a tiempo")
                 return None
@@ -292,7 +301,7 @@ class Columns:
             print(f"❌ No hay columnas generadas para k = {k}")
             return solucion_vacia
 
-        modelo, x_vars, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante_final)
+        modelo, x_vars, _, _, _, _, _ = self.construir_modelo_maestro(k, tiempo_restante_final)
 
         if modelo is None:
             print("❌ No se pudo construir el modelo maestro en Opt_PasillosFijos → tiempo agotado o error.")
