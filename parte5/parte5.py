@@ -1,11 +1,16 @@
 from columns_solver import Columns  
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Obtener directorio raíz del proyecto
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..'))
+sys.path.append(project_root)
+
 from cargar_input import leer_input
 from guardar_output import guardar_resultado
 
-archivo_input = "datos_de_entrada/a/instance_0003.txt"
+archivo_input = os.path.join(project_root, "datos_de_entrada/a/instance_0003.txt")
 W, S, LB, UB = leer_input(archivo_input)
 
 solver = Columns(W, S, LB, UB)

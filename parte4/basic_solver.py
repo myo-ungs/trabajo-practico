@@ -29,7 +29,7 @@ class Basic:
 
         for i in range(self.n_elementos):
             if umbral and (time.time() - start_time > umbral):
-                print("⏱️ Tiempo excedido durante la construcción del maestro.")
+                print("[TIMEOUT] Tiempo excedido durante la construccion del maestro.")
                 return None, None
             maestro.addCons( quicksum(self.W[o][i] * y[o] for o in y) <= quicksum(self.S[a][i] * x[a] for a in x),
                 name=f"cap_{i}"
@@ -56,7 +56,7 @@ class Basic:
 
         for i in range(self.n_elementos):
             if umbral and (time.time() - start_time > umbral):
-                print("⏱️ Tiempo excedido durante la construcción del modelo.")
+                print("[TIMEOUT] Tiempo excedido durante la construccion del modelo.")
                 return None
             modelo.addCons(
                 quicksum(self.W[o][i] * y[o] for o in y) <= quicksum(self.S[a][i] * x[a] for a in x),
@@ -160,14 +160,44 @@ class Basic:
         start = time.time()
         mejor_sol = None
         mejor_valor = -float("inf")
+        
+        # Usar una estrategia más inteligente: explorar K en un rango más acotado
+        # En lugar de explorar todos los K, exploramos un subconjunto estratégico
         k_list = self.Rankear()
-
-        for k in k_list:
-            tiempo_restante = umbral_total - (time.time() - start)
-            if tiempo_restante <= 0:
+        n_k = len(k_list)
+        
+        # Limitar la cantidad de K a explorar para respetar el tiempo
+        # Reservar 20% del tiempo para Opt_PasillosFijos al final
+        tiempo_exploracion = umbral_total * 0.8
+        
+        # Estrategia: explorar K espaciados logarítmicamente si hay muchos
+        if n_k > 20:
+            # Explorar ~20 valores de K distribuidos
+            import math
+            indices = set([0, n_k-1])  # Siempre incluir primero y último
+            for i in range(18):
+                idx = int((i / 17) * (n_k - 1))
+                indices.add(idx)
+            k_list_reducida = [k_list[i] for i in sorted(indices)]
+        else:
+            k_list_reducida = k_list
+        
+        # Asignar tiempo por cada K
+        tiempo_por_k = tiempo_exploracion / len(k_list_reducida) if k_list_reducida else 0
+        
+        for k in k_list_reducida:
+            tiempo_transcurrido = time.time() - start
+            tiempo_restante = umbral_total - tiempo_transcurrido
+            
+            # Verificación estricta de tiempo (dejar margen de 30s)
+            if tiempo_restante <= 30:
+                print(f"[TIMEOUT] Tiempo limite alcanzado despues de explorar {k_list_reducida.index(k)} valores de K")
                 break
 
-            solucion = self.Opt_cantidadPasillosFija(k, tiempo_restante)
+            # Usar el mínimo entre tiempo_por_k y tiempo_restante - 30s
+            tiempo_para_este_k = min(tiempo_por_k, tiempo_restante - 30)
+            
+            solucion = self.Opt_cantidadPasillosFija(k, tiempo_para_este_k)
             if solucion and solucion["valor_objetivo"] > mejor_valor:
                 mejor_valor = solucion["valor_objetivo"]
                 mejor_sol = solucion
@@ -175,8 +205,9 @@ class Basic:
         if mejor_sol:
             self.mejores_pasillos = mejor_sol["pasillos_seleccionados"]
             tiempo_restante = umbral_total - (time.time() - start)
-            if tiempo_restante > 0:
-                solucion_para_k_fijo = self.Opt_PasillosFijos(tiempo_restante)
+            # Solo ejecutar Opt_PasillosFijos si queda suficiente tiempo
+            if tiempo_restante > 10:
+                solucion_para_k_fijo = self.Opt_PasillosFijos(tiempo_restante - 5)
                 if solucion_para_k_fijo and solucion_para_k_fijo["valor_objetivo"] > mejor_valor:
                     mejor_sol = solucion_para_k_fijo
 
