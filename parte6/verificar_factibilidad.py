@@ -35,7 +35,7 @@ def verificar_solucion(path, ordenes_sel, pasillos_sel):
             S[pas_id][e] = q
 
     # ===== Leer LB y UB =====
-    LB, UB = map(int, data[idx].split())
+    UB = map(int, data[idx].split())
 
     # ===== Calcular demanda y capacidad =====
     demanda = [0]*i
