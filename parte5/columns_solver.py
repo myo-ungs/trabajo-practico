@@ -275,9 +275,6 @@ class Columns:
 
         return mejor_sol
 
-
-
-
     def Opt_PasillosFijos(self, umbral):
         tiempo_ini = time.time()
         k = len(self.pasillos_fijos)
@@ -352,7 +349,7 @@ class Columns:
         for k, tiempo_k in zip(lista_k, lista_umbrales):
             tiempo_actual = time.time()
             tiempo_transcurrido = tiempo_actual - tiempo_ini
-            tiempo_restante_total = umbral - 4 - tiempo_transcurrido
+            tiempo_restante_total = (umbral * 0.9) - tiempo_transcurrido
 
             if tiempo_restante_total <= 0:
                 break
