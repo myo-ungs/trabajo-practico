@@ -357,7 +357,6 @@ class Columns:
             tiempo_k_deseado = tiempo_k
             tiempo_k = min(tiempo_k_deseado, tiempo_restante_total)
 
-            print(f"Evaluando k={k} con tiempo asignado {tiempo_k:.2f} segundos")
 
             sol = self.Opt_cantidadPasillosFija(k, tiempo_k)
 

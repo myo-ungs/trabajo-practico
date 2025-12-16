@@ -407,7 +407,7 @@ class Columns(ColumnsBase):
         for k, tiempo_k_estimado in zip(lista_k, lista_umbrales):
             tiempo_actual = time.time()
             tiempo_transcurrido = tiempo_actual - tiempo_ini
-            tiempo_restante_total = umbral - tiempo_final_fijo - tiempo_transcurrido
+            tiempo_restante_total = (umbral * 0.9) - tiempo_final_fijo - tiempo_transcurrido
 
             if tiempo_restante_total <= 0:
                 print("⏳ Sin tiempo restante para seguir evaluando k.")

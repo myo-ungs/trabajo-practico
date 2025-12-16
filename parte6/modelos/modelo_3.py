@@ -69,7 +69,7 @@ class Columns(ColumnsBase):
         REDUCED_COST_TOL = 1e-6
 
         while True:
-            tiempo_restante = self.tiempo_restante(tiempo_ini, umbral)
+            tiempo_restante = self.tiempo_restante(tiempo_ini, (umbral * 0.9))
             if tiempo_restante <= 0:
                 break
 
