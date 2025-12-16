@@ -216,6 +216,9 @@ class Columns(ColumnsBase):
         modelo.addCons(quicksum(y[a] for a in range(A)) == k, name="al_menos_un_pasillo")
 
         for i in range(I):
+            if tiempo_excedido(tiempo_ini, umbral):
+                print("⏱️ Tiempo excedido antes de comenzar.")
+                return None
             modelo.addCons(
                 quicksum(W[o][i] * z[o] for o in range(O)) <=
                 quicksum(S[a][i] * y[a] for a in range(A)),

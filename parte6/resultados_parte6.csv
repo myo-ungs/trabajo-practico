@@ -3,15 +3,19 @@ a_instance_0001.txt;Restricciones;179;184;179;179
 ;# variables inicial;115;23;115;115
 ;# variables en últ. maestro;115;23;115;115
 ;Mejor objetivo;8.0;8.0;8.0;8.0
+;Tiempo total;30.02;8.08;17.35;28.35
 a_instance_0002.txt;Restricciones;42;45;42;42
 ;# variables inicial;160;32;160;160
 ;# variables en últ. maestro;160;32;160;160
 ;Mejor objetivo;2.0;2.0;2.0;2.0
+;Tiempo total;0.69;0.5;0.44;0.69
 a_instance_0003.txt;Restricciones;208;210;208;208
 ;# variables inicial;95;19;95;95
 ;# variables en últ. maestro;95;19;95;95
 ;Mejor objetivo;12.0;12.0;12.0;12.0
+;Tiempo total;52.86;14.33;34.34;52.06
 a_instance_0004.txt;Restricciones;;;;
 ;# variables inicial;0;0;0;0
 ;# variables en últ. maestro;0;0;0;0
 ;Mejor objetivo;0;0;0;0
+;Tiempo total;2.87;1.61;1.2;2.6
